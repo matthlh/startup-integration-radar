@@ -138,8 +138,14 @@ def summarize_evidence(evidence: list[Evidence], limit: int = 5) -> str:
 
     clauses: list[str] = []
     for source_context, items in list(grouped.items())[:limit]:
+        sorted_items = sorted(items, key=_keyword_priority, reverse=True)
+        # Prefer named systems, competitors, and integration terms over generic
+        # keywords like 'documentation' or 'operations' in human-readable output.
+        display_items = [ev for ev in sorted_items if _keyword_priority(ev) >= 1]
+        if not display_items:
+            display_items = sorted_items  # fall back to all if nothing notable
         unique_keywords: list[str] = []
-        for item in sorted(items, key=_keyword_priority, reverse=True):
+        for item in display_items:
             keyword = item.matched_keyword.strip()
             if keyword and keyword.lower() not in {k.lower() for k in unique_keywords}:
                 unique_keywords.append(keyword)

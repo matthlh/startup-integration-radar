@@ -32,6 +32,25 @@ def test_score_evidence_rewards_integration_heavy_company():
     assert any(s.signal == SignalName.integration_language for s in signal_scores)
 
 
+def test_evidence_fields_are_populated_from_extract_evidence():
+    text = "We offer Salesforce and HubSpot integrations with full API access."
+    evidence = extract_evidence(
+        text,
+        source_url="https://example.com/integrations",
+        page_title="Integrations | Example",
+    )
+    assert evidence, "Expected at least one evidence item"
+    named_system = next(
+        (ev for ev in evidence if ev.matched_keyword.lower() in {"salesforce", "hubspot"}),
+        None,
+    )
+    assert named_system is not None, "Expected a named-system evidence item"
+    assert named_system.source_url == "https://example.com/integrations"
+    assert named_system.page_title == "Integrations | Example"
+    assert named_system.matched_keyword != ""
+    assert named_system.source_context != ""
+
+
 def test_disqualifier_penalizes_consumer_company():
     text = "mobile game consumer app personal blog"
     evidence = extract_evidence(text)
