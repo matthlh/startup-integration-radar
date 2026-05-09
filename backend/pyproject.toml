@@ -1,0 +1,12 @@
+[project]
+name = "rutter-integration-radar-backend"
+version = "0.2.0"
+description = "Evidence-first GTM engine for finding integration-heavy companies."
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100

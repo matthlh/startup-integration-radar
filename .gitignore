@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.env
+*.db
+*.sqlite
+.pytest_cache/
+.coverage
+
+# Node
+node_modules/
+.next/
+out/
+npm-debug.log*
+.env.local
+
+# Data outputs
+backend/data/*.sqlite3
+backend/data/*.csv
+!backend/data/seed_companies.csv
+!data/examples/*.csv
+exports/
+
+# OS/editor
+.DS_Store
+.vscode/
+.idea/
