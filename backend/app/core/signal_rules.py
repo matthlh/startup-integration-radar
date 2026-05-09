@@ -1,84 +1,67 @@
 from __future__ import annotations
 
+from pathlib import Path
+from typing import Any
+
+import yaml
+
 from app.schemas import EvidenceType, SignalName
 
-SIGNAL_MAX_POINTS: dict[SignalName, int] = {
-    SignalName.workflow_product: 15,
-    SignalName.developer_surface: 15,
-    SignalName.integration_language: 15,
-    SignalName.enterprise_motion: 10,
-    SignalName.customer_system_complexity: 15,
-    SignalName.implementation_burden: 10,
-    SignalName.partner_ecosystem: 5,
-    SignalName.urgency_or_growth: 5,
-    SignalName.demoability: 10,
-    SignalName.competitor_presence: 10,
-    SignalName.disqualifier: 100,
-}
+# ─── Config loader ────────────────────────────────────────────────────────────
 
-SIGNAL_KEYWORDS: dict[SignalName, list[str]] = {
-    SignalName.workflow_product: [
-        "workflow", "automate", "automation", "operations", "platform", "dashboard",
-        "review", "approval", "claim", "inspection", "quote", "order", "case", "ticket",
-        "dispatch", "onboarding", "implementation", "process",
-    ],
-    SignalName.developer_surface: [
-        "api", "apis", "sdk", "developer", "developers", "docs", "documentation",
-        "webhook", "webhooks", "sandbox", "endpoint", "graphql", "rest api",
-    ],
-    SignalName.integration_language: [
-        "integration", "integrations", "connect", "connected", "sync", "import", "export",
-        "push data", "pull data", "salesforce", "hubspot", "slack", "sap", "netsuite",
-        "quickbooks", "workday", "snowflake", "jira", "procore", "autodesk", "stripe",
-    ],
-    SignalName.enterprise_motion: [
-        "enterprise", "security", "soc 2", "sso", "role-based", "rbac", "audit",
-        "implementation", "procurement", "compliance", "customers", "case study",
-    ],
-    SignalName.customer_system_complexity: [
-        "erp", "crm", "dms", "dealer management", "claims management", "fleet management",
-        "transportation management", "warehouse", "ehr", "emr", "billing", "accounting",
-        "procurement", "project management", "data warehouse", "legacy system",
-    ],
-    SignalName.implementation_burden: [
-        "custom", "customize", "configure", "implementation", "migration", "onboarding",
-        "professional services", "solution engineer", "customer success", "deployment", "rollout",
-    ],
-    SignalName.partner_ecosystem: [
-        "partner", "partners", "marketplace", "app marketplace", "ecosystem", "reseller",
-        "technology partner", "solution partner",
-    ],
-    SignalName.urgency_or_growth: [
-        "series a", "series b", "hiring", "we're hiring", "scale", "growing", "launched",
-        "new funding", "backed by", "yc", "a16z", "sequoia", "founders fund",
-    ],
-    SignalName.demoability: [
-        "demo", "request demo", "book a demo", "case study", "customer story", "use case",
-        "before and after", "template", "example", "sample", "calculator", "report",
-    ],
-    SignalName.competitor_presence: [
-        "merge.dev", "merge api", "merge unified api", "useparagon", "paragon",
-        "paragon embedded", "paragon integration", "unified api provider",
-    ],
-    SignalName.disqualifier: [
-        "consumer app", "mobile game", "media company", "newsletter", "agency only", "consulting only",
-        "ecommerce store", "restaurant", "local service", "personal blog",
-    ],
-}
+_CONFIG_PATH = Path(__file__).resolve().parents[2] / "config" / "signals.yaml"
 
-SIGNAL_WEIGHTS: dict[SignalName, int] = {
-    SignalName.workflow_product: 2,
-    SignalName.developer_surface: 4,
-    SignalName.integration_language: 4,
-    SignalName.enterprise_motion: 2,
-    SignalName.customer_system_complexity: 3,
-    SignalName.implementation_burden: 2,
-    SignalName.partner_ecosystem: 2,
-    SignalName.urgency_or_growth: 1,
-    SignalName.demoability: 2,
-    SignalName.competitor_presence: 5,
-    SignalName.disqualifier: -10,
-}
+
+def _load_config() -> dict[str, Any]:
+    with open(_CONFIG_PATH, encoding="utf-8") as fh:
+        return yaml.safe_load(fh)
+
+
+_config: dict[str, Any] = _load_config()
+
+
+def get_config() -> dict[str, Any]:
+    """Return the parsed signals.yaml config (cached at import time)."""
+    return _config
+
+
+def get_company_name() -> str:
+    """Return the configured company name for use in outreach templates."""
+    return _config.get("your_company_name", "Your Company")
+
+
+# ─── Build module-level constants from config ─────────────────────────────────
+
+def _build_constants(
+    config: dict[str, Any],
+) -> tuple[
+    dict[SignalName, int],
+    dict[SignalName, list[str]],
+    dict[SignalName, int],
+]:
+    signal_data = config.get("signals", {})
+    max_points: dict[SignalName, int] = {}
+    keywords: dict[SignalName, list[str]] = {}
+    weights: dict[SignalName, int] = {}
+
+    for name, cfg in signal_data.items():
+        try:
+            signal = SignalName(name)
+        except ValueError:
+            raise ValueError(
+                f"Unknown signal '{name}' in {_CONFIG_PATH}. "
+                f"Valid names: {[s.value for s in SignalName]}"
+            )
+        max_points[signal] = int(cfg["max_points"])
+        keywords[signal] = [str(k) for k in cfg.get("keywords", [])]
+        weights[signal] = int(cfg["weight"])
+
+    return max_points, keywords, weights
+
+
+SIGNAL_MAX_POINTS, SIGNAL_KEYWORDS, SIGNAL_WEIGHTS = _build_constants(_config)
+
+# ─── Evidence type hints (classification only — not in scoring config) ─────────
 
 KEYWORD_EVIDENCE_TYPE: dict[SignalName, EvidenceType] = {
     SignalName.developer_surface: EvidenceType.docs,
@@ -86,3 +69,10 @@ KEYWORD_EVIDENCE_TYPE: dict[SignalName, EvidenceType] = {
     SignalName.urgency_or_growth: EvidenceType.funding_or_news,
     SignalName.competitor_presence: EvidenceType.integrations_page,
 }
+
+# ─── Competitor aliases (loaded from config) ──────────────────────────────────
+
+def get_competitor_aliases() -> dict[str, list[str]]:
+    """Return {display_name: [alias, ...]} from signals.yaml competitors section."""
+    raw = _config.get("competitors", {})
+    return {name: [str(a) for a in data.get("aliases", [])] for name, data in raw.items()}

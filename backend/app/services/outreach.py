@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from app.core.signal_rules import get_company_name
 from app.providers.anthropic import LLMUnavailable, complete_json
 from app.schemas import CompanyProfile, DemoConcept, OutreachAsset
 
@@ -12,7 +13,7 @@ def make_integration_hypothesis(profile: CompanyProfile) -> str:
         competitor = profile.competitive_triggers[0].competitor
         return (
             f"{profile.name} appears to sell {category} and may already understand unified integrations "
-            f"because public evidence mentions {competitor}. The stronger GTM angle is a Rutter comparison: "
+            f"because public evidence mentions {competitor}. The stronger angle is a comparison: "
             f"coverage, implementation speed, and customer-facing syncs into {system_text}."
         )
     return (
@@ -25,6 +26,7 @@ def make_outreach(profile: CompanyProfile) -> OutreachAsset:
     if profile.competitive_triggers:
         return make_competitive_outreach(profile)
 
+    company = get_company_name()
     systems = profile.likely_customer_systems or ["their existing customer systems", "CRMs", "internal databases"]
     first_system = systems[0]
     first_line = profile.one_liner or f"I was looking at {profile.name}'s product and the workflow it supports."
@@ -54,19 +56,20 @@ Worth a quick conversation to compare notes on where integrations are slowing th
 
 
 def make_competitive_outreach(profile: CompanyProfile) -> OutreachAsset:
+    company = get_company_name()
     trigger = profile.competitive_triggers[0]
     systems = profile.likely_customer_systems or ["CRM", "ERP", "customer operations tools"]
     first_line = profile.one_liner or f"I was looking at {profile.name}'s product and integration surface."
-    subject = f"Rutter angle for {profile.name}'s integrations"
+    subject = f"Integration angle for {profile.name}"
     body = f"""Hi {{{{first_name}}}},
 
 {first_line}
 
-I noticed a public signal around {trigger.competitor}, so I’m guessing your team may already be thinking seriously about embedded or customer-facing integrations.
+I noticed a public signal around {trigger.competitor}, so I'm guessing your team may already be thinking seriously about embedded or customer-facing integrations.
 
-Rather than a generic “do you need integrations?” note, I had a more specific question: are there customer-requested systems where coverage, implementation speed, or maintenance still creates friction?
+Rather than a generic "do you need integrations?" note, I had a more specific question: are there customer-requested systems where coverage, implementation speed, or maintenance still creates friction?
 
-A Rutter-powered demo for {profile.name} could show:
+A demo for {profile.name} could show:
 - a customer record/event from {profile.name} normalized into {systems[0]}
 - sync status, retries, and field mappings visible to the customer
 - a path to launch more integrations without pulling core product engineers off roadmap
@@ -92,8 +95,9 @@ async def make_demo_concept(profile: CompanyProfile, use_llm: bool = False) -> D
 
 
 async def make_demo_concept_with_llm(profile: CompanyProfile) -> DemoConcept:
+    company = get_company_name()
     system = (
-        "You are a GTM engineer designing tiny Vercel demos for B2B integration prospects. "
+        f"You are a GTM engineer designing tiny Vercel demos for B2B integration prospects on behalf of {company}. "
         "Return strict JSON only. Do not invent private facts. Base the demo on public evidence and the supplied hypothesis."
     )
     user = {
@@ -105,8 +109,8 @@ async def make_demo_concept_with_llm(profile: CompanyProfile) -> DemoConcept:
         "evidence_summary": profile.evidence_summary,
         "competitive_triggers": [trigger.model_dump() for trigger in profile.competitive_triggers],
         "instructions": (
-            "Create a concrete Rutter demo concept. The best answer should sound like: "
-            "'Show them Rutter syncing automotive inspection data directly into an Insurance Claim dashboard.' "
+            "Create a concrete integration demo concept. The best answer should sound like: "
+            "'Show them syncing automotive inspection data directly into an Insurance Claim dashboard.' "
             "Return keys: title, hypothesis, steps, public_assets_needed, estimated_build_minutes."
         ),
     }
@@ -127,13 +131,13 @@ def make_demo_concept_deterministic(profile: CompanyProfile) -> DemoConcept:
     if profile.competitive_triggers:
         competitor = profile.competitive_triggers[0].competitor
         return DemoConcept(
-            title=f"Rutter replacement angle: {profile.name} → {systems[0]}",
+            title=f"Integration comparison: {profile.name} → {systems[0]}",
             hypothesis=profile.integration_need_hypothesis or make_integration_hypothesis(profile),
             steps=[
                 f"Trigger: customer data or a new {workflow_object} is created in {profile.name}.",
                 f"Transform: map {profile.name} fields into the destination schema for {systems[0]}.",
-                f"Sync: use a Rutter-style unified integration flow to create/update the object in {systems[0]}.",
-                f"Compare: show where this flow could reduce friction versus a {competitor}-style integration path.",
+                f"Sync: push the normalized record into {systems[0]} via a unified integration flow.",
+                f"Compare: show where this flow reduces friction versus a {competitor}-style integration path.",
                 "Notify: surface success/failure to the customer and internal owner.",
                 "Audit: show logs, retries, and customer-visible field mapping controls.",
             ],

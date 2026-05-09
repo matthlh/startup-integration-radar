@@ -59,6 +59,6 @@ def test_competitive_trigger_changes_hypothesis_outreach_and_demo():
     demo = make_demo_concept_deterministic(profile)
 
     assert triggers[0].competitor == "Paragon"
-    assert "Rutter comparison" in profile.integration_need_hypothesis
+    assert "comparison" in profile.integration_need_hypothesis
     assert "Paragon" in outreach.body
-    assert "Rutter" in demo.title
+    assert "comparison" in demo.title.lower()

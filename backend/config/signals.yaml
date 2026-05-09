@@ -1,0 +1,254 @@
+# ─── Integration Radar — Signal Configuration ────────────────────────────────
+#
+# This file controls everything about how companies are scored.
+# You do not need to touch any Python files to tune detection.
+#
+# HOW SCORING WORKS
+# -----------------
+# Each company page is scanned for keywords.
+# Every keyword hit adds to that signal's score bucket.
+# Score buckets are capped at max_points (saturating: 1 hit = clue, 3+ = strong).
+# weight multiplies the bonus when many hits accumulate on the same signal.
+# Total score = sum of all signal buckets, capped at 100.
+# Disqualifier keywords subtract 35 points and may trigger disqualification.
+#
+# TOTAL MAX SCORE = sum of all max_points below (should equal ~100).
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Name of your company — used in outreach email templates and demo concepts.
+your_company_name: "Your Company"
+
+# ─── Signals ─────────────────────────────────────────────────────────────────
+# max_points: most this signal can contribute to the total score
+# weight:     bonus multiplier when the same signal appears many times
+# keywords:   any of these found on the page triggers this signal
+signals:
+
+  # The company sells a product with a workflow object (claims, orders, tickets…)
+  # that customers would want to move into other systems.
+  workflow_product:
+    max_points: 15
+    weight: 2
+    keywords:
+      - workflow
+      - automate
+      - automation
+      - operations
+      - platform
+      - dashboard
+      - review
+      - approval
+      - claim
+      - inspection
+      - quote
+      - order
+      - case
+      - ticket
+      - dispatch
+      - onboarding
+      - implementation
+      - process
+
+  # The company exposes an API, webhooks, or SDK — a sign that integration
+  # is already part of the product surface.
+  developer_surface:
+    max_points: 15
+    weight: 4
+    keywords:
+      - api
+      - apis
+      - sdk
+      - developer
+      - developers
+      - docs
+      - documentation
+      - webhook
+      - webhooks
+      - sandbox
+      - endpoint
+      - graphql
+      - rest api
+
+  # The company explicitly talks about integrations, connectors, or named tools
+  # like Salesforce — the strongest direct signal.
+  integration_language:
+    max_points: 15
+    weight: 4
+    keywords:
+      - integration
+      - integrations
+      - connect
+      - connected
+      - sync
+      - import
+      - export
+      - push data
+      - pull data
+      - salesforce
+      - hubspot
+      - slack
+      - sap
+      - netsuite
+      - quickbooks
+      - workday
+      - snowflake
+      - jira
+      - procore
+      - autodesk
+      - stripe
+
+  # Enterprise sales motion implies larger deals with more integration requirements.
+  enterprise_motion:
+    max_points: 10
+    weight: 2
+    keywords:
+      - enterprise
+      - security
+      - soc 2
+      - sso
+      - role-based
+      - rbac
+      - audit
+      - implementation
+      - procurement
+      - compliance
+      - customers
+      - case study
+
+  # Customer systems (CRM, ERP, etc.) create integration pain for the company's users.
+  customer_system_complexity:
+    max_points: 15
+    weight: 3
+    keywords:
+      - erp
+      - crm
+      - dms
+      - dealer management
+      - claims management
+      - fleet management
+      - transportation management
+      - warehouse
+      - ehr
+      - emr
+      - billing
+      - accounting
+      - procurement
+      - project management
+      - data warehouse
+      - legacy system
+
+  # Professional services or heavy onboarding implies custom integration work is needed.
+  implementation_burden:
+    max_points: 10
+    weight: 2
+    keywords:
+      - custom
+      - customize
+      - configure
+      - implementation
+      - migration
+      - onboarding
+      - professional services
+      - solution engineer
+      - customer success
+      - deployment
+      - rollout
+
+  # Partner or marketplace ecosystem implies external system dependencies.
+  partner_ecosystem:
+    max_points: 5
+    weight: 2
+    keywords:
+      - partner
+      - partners
+      - marketplace
+      - app marketplace
+      - ecosystem
+      - reseller
+      - technology partner
+      - solution partner
+
+  # Funding or growth signals can increase integration backlog pressure.
+  urgency_or_growth:
+    max_points: 5
+    weight: 1
+    keywords:
+      - series a
+      - series b
+      - hiring
+      - we're hiring
+      - scale
+      - growing
+      - launched
+      - new funding
+      - backed by
+      - yc
+      - a16z
+      - sequoia
+      - founders fund
+
+  # A clear workflow object or demo makes it easier to build a concrete pitch.
+  demoability:
+    max_points: 10
+    weight: 2
+    keywords:
+      - demo
+      - request demo
+      - book a demo
+      - case study
+      - customer story
+      - use case
+      - before and after
+      - template
+      - example
+      - sample
+      - calculator
+      - report
+
+  # A competitor signal is a strong buying signal — they already care about this space.
+  competitor_presence:
+    max_points: 10
+    weight: 5
+    keywords:
+      - merge.dev
+      - merge api
+      - merge unified api
+      - useparagon
+      - paragon
+      - paragon embedded
+      - paragon integration
+      - unified api provider
+
+  # These patterns suggest the company is NOT a B2B integration prospect.
+  # Each hit subtracts 35 points from the total score.
+  disqualifier:
+    max_points: 100
+    weight: -10
+    keywords:
+      - consumer app
+      - mobile game
+      - media company
+      - newsletter
+      - agency only
+      - consulting only
+      - ecommerce store
+      - restaurant
+      - local service
+      - personal blog
+
+# ─── Competitors to watch ─────────────────────────────────────────────────────
+# When any alias is found on a company page, a competitive_trigger is created.
+# Add any integration platform or competitor you want to detect.
+# The display name (e.g. "Merge.dev") is what appears in reports and outreach.
+competitors:
+  "Merge.dev":
+    aliases:
+      - merge.dev
+      - merge api
+      - merge unified api
+  "Paragon":
+    aliases:
+      - useparagon
+      - paragon
+      - paragon embedded
+      - paragon integration
