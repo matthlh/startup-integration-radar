@@ -2,11 +2,11 @@
 
 ## Core thesis
 
-The outbound should not say “we build integrations” in a generic way.
+The outbound should not say "we build integrations" in a generic way.
 
 It should say:
 
-> “I noticed your workflow likely needs to connect into these customer systems. Is that becoming a blocker?”
+> "I noticed your workflow likely needs to connect into these customer systems. Is that becoming a blocker?"
 
 ## Best personas
 
@@ -50,7 +50,6 @@ Not sure if this is exactly how customers ask for it, but it seemed like a plaus
 - Do not pretend to know their internal roadmap.
 - Do not claim they have integration pain unless evidence is strong.
 - Do not send a wall of text.
-- Do not lead with “I’m a student” unless networking casually.
 - Do not mention scraping/crawling in outbound.
 
 ## Competitive trigger outbound
@@ -60,7 +59,7 @@ Use this when `competitive_triggers[]` is not empty.
 Subject:
 
 ```text
-Rutter angle for {{Company}}'s integrations
+Integration angle for {{Company}}
 ```
 
 Body skeleton:
@@ -68,11 +67,11 @@ Body skeleton:
 ```text
 Hi {{first_name}},
 
-I noticed a public signal around {{Competitor}}, so I’m guessing your team may already be thinking seriously about embedded or customer-facing integrations.
+I noticed a public signal around {{Competitor}}, so I'm guessing your team may already be thinking seriously about embedded or customer-facing integrations.
 
-Rather than a generic “do you need integrations?” note, I had a more specific question: are there customer-requested systems where coverage, implementation speed, or maintenance still creates friction?
+Rather than a generic "do you need integrations?" note, I had a more specific question: are there customer-requested systems where coverage, implementation speed, or maintenance still creates friction?
 
-A Rutter-powered demo for {{Company}} could show:
+A demo for {{Company}} could show:
 - a customer record/event from {{Company}} normalized into {{Customer System}}
 - sync status, retries, and field mappings visible to the customer
 - a path to launch more integrations without pulling core product engineers off roadmap

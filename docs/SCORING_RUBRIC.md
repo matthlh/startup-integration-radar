@@ -43,27 +43,27 @@ Subtract heavily or disqualify when the company is likely:
 
 ## How to improve the rubric
 
-Add examples, then write tests.
+All keywords, weights, and max_points are in `backend/config/signals.yaml`. Edit that file to tune scoring — no Python needed.
+
+Add test cases in `backend/tests/` when you make significant changes.
 
 Good test cases:
 
-- Monk-style automotive inspection workflow
-- construction tech product needing Procore/Autodesk sync
-- sales AI needing CRM sync
-- consumer mobile app with no B2B workflow
-- pure agency with no software product
+- Monk-style automotive inspection workflow (should score 75+)
+- Construction tech needing Procore/Autodesk sync (should score 75+)
+- Sales AI needing CRM sync (should score 70+)
+- Consumer mobile app with no B2B workflow (should score < 45, disqualified)
+- Pure agency with no software product (should score < 45)
 
 ## Competitive trigger scoring
 
-A competitor signal is a positive GTM trigger, not automatic proof of fit.
+A competitor signal is a positive GTM trigger — it means the company already cares about integrations.
 
-Examples:
+Examples of competitors to detect (configurable in `signals.yaml`):
 
-- Merge.dev
-- Merge API
-- Paragon
-- useparagon
-- Paragon embedded integrations
+- Merge.dev / Merge API
+- Paragon / useparagon
+- Any other integration platform you add to `competitors:` in the config
 
 If found, add `competitor_presence` evidence and generate a `competitive_triggers[]` entry.
 
@@ -76,5 +76,5 @@ Do you need integrations?
 to:
 
 ```text
-You may already care about unified integrations. Where is the current approach still creating coverage, speed, or maintenance gaps?
+You may already care about integrations. Where is the current approach still creating coverage, speed, or maintenance gaps?
 ```

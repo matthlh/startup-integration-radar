@@ -13,7 +13,7 @@ export const mockCompanies: CompanyProfile[] = [
     integration_need_hypothesis:
       "Monk likely needs to move inspection data into fleet, dealer, and insurance claims systems.",
     evidence_summary:
-      "Mentioned 'API' and 'inspection' on their website; mentioned 'fleet management' and 'claims management' on their product pages.",
+      "Mentioned 'api' and 'inspection' on their website; mentioned 'fleet management' and 'claims management' on their product pages.",
     competitive_triggers: [],
     primary_persona: {
       persona: "product",
@@ -32,7 +32,7 @@ export const mockCompanies: CompanyProfile[] = [
         snippet: "API-powered inspection workflows",
         signal: "developer_surface",
         weight: 4,
-        matched_keyword: "API",
+        matched_keyword: "api",
         source_context: "website"
       },
       {
@@ -81,7 +81,7 @@ export const mockCompanies: CompanyProfile[] = [
     employee_count_estimate: 35,
     likely_customer_systems: ["Salesforce", "NetSuite", "Slack"],
     integration_need_hypothesis:
-      "AcmeOps may already understand unified integrations because public evidence mentions Paragon. Lead with a Rutter comparison angle.",
+      "AcmeOps may already be thinking about integrations — public evidence mentions Paragon. Focus on coverage gaps and implementation speed.",
     evidence_summary:
       "Mentioned 'Paragon' on their integrations/partners page; mentioned 'NetSuite' and 'Salesforce' on their engineering job posting.",
     competitive_triggers: [
@@ -89,7 +89,7 @@ export const mockCompanies: CompanyProfile[] = [
         competitor: "Paragon",
         evidence_ids: ["ev3"],
         angle:
-          "Competitive trigger found for Paragon. Lead with a Rutter comparison angle around coverage gaps, implementation speed, and maintenance burden.",
+          "Competitive signal found for Paragon. Focus on coverage gaps, implementation speed, and maintenance burden.",
         risk_note: "Validate this is a real vendor/customer relationship before sending."
       }
     ],
@@ -124,13 +124,13 @@ export const mockCompanies: CompanyProfile[] = [
       }
     ],
     outreach: {
-      subject: "Rutter angle for AcmeOps's integrations",
+      subject: "Integration angle for AcmeOps",
       body: "Hi {{first_name}},\n\nI noticed a public signal around Paragon..."
     },
     demo: {
-      title: "Rutter replacement angle: AcmeOps → Salesforce",
+      title: "Integration comparison: AcmeOps → Salesforce",
       hypothesis: "Show a better customer-facing integration path.",
-      steps: ["Customer record created", "Map fields into Salesforce", "Sync through Rutter-style flow"],
+      steps: ["Customer record created", "Map fields into Salesforce", "Sync via unified integration flow"],
       public_assets_needed: ["website copy", "public integration page"],
       estimated_build_minutes: 150
     }

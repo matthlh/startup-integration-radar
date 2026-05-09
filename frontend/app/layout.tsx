@@ -2,8 +2,8 @@ import "./globals.css";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Rutter Integration Radar",
-  description: "Evidence-first GTM pipeline for integration-heavy companies",
+  title: "Integration Scout",
+  description: "Find companies that need integrations built — evidence-first GTM pipeline.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

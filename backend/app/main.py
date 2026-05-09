@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import router
 
-app = FastAPI(title="Rutter Integration Radar", version="0.2.0")
+app = FastAPI(title="Integration Scout", version="0.2.0")
 
 app.add_middleware(
     CORSMiddleware,

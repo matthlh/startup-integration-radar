@@ -41,13 +41,13 @@ export default function Home() {
     <main className="mx-auto min-h-screen max-w-7xl px-6 py-8">
       <section className="rounded-3xl bg-slate-950 p-8 text-white shadow-xl">
         <div className="max-w-3xl">
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-400">Rutter Integration Radar</p>
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-400">Integration Scout</p>
           <h1 className="mt-4 text-4xl font-bold tracking-tight md:text-5xl">
-            Find companies with integration pain, then turn evidence into outbound.
+            Find companies that need integrations built, then turn evidence into outbound.
           </h1>
           <p className="mt-4 text-base leading-7 text-slate-300">
-            This dashboard is built for the Monk-style GTM motion: discover companies, collect public evidence,
-            score integration need, choose personas, export to Clay, and build demo angles for the strongest prospects.
+            Enter a domain to crawl public pages, collect integration evidence, score the opportunity,
+            pick the right persona, and generate outreach and a demo concept — all exportable to Clay.
           </p>
         </div>
         <div className="mt-6 grid gap-3 md:grid-cols-[1fr_auto_auto]">

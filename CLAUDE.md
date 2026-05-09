@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-You are working on **Rutter Integration Radar**, an evidence-first GTM tool for finding companies with likely integration pain.
+You are working on **Integration Scout**, an evidence-first tool for finding B2B software companies that likely need customer-facing integrations, workflow connectors, data syncs, or API implementation work built out as part of their product offering.
 
 ## Read first
 
@@ -17,17 +17,19 @@ Before coding, read these files:
 
 This is not a generic scraper. The product should help answer:
 
-> “Is this company likely to need customer-facing integrations badly enough that Rutter or an integration services team should outbound them?”
+> "Is this company likely to need customer-facing integrations badly enough that an integration services team should reach out to them?"
+
+A company like monk.ai is a good example: they sell automotive inspection AI and their customers almost certainly need that data synced into fleet management systems, dealer management systems, or insurance claims platforms. They need integrations built.
 
 Every company should become a reviewable GTM card:
 
 - What the company does
-- Why integrations are likely painful
+- Why integrations are likely part of their product gap
 - Public evidence supporting that claim
-- Whether a competitor trigger exists
+- Whether a competitor integration platform is already in play
 - Who to contact
 - What to say
-- What demo to build if they do not respond
+- What demo concept to build if they do not respond
 
 ## Current acceptance criteria
 
@@ -48,8 +50,8 @@ Do not regress these features:
    - Optional Claude path must return strict JSON and gracefully fall back if unavailable.
 
 4. **Competitive Trigger**
-   - Detect Merge.dev and Paragon signals from page text, links, image alt text, and asset names.
-   - If triggered, outreach/demo should use a Rutter comparison angle instead of a generic integration angle.
+   - Detect integration platform signals (Merge.dev, Paragon, etc.) from page text, links, image alt text, and asset names.
+   - If triggered, outreach/demo should use a comparison angle rather than a generic integration angle.
 
 ## Architecture
 
@@ -60,6 +62,7 @@ backend/app/services/    product workflows: profile, persona, outreach, discover
 backend/app/storage/     local JSON store for MVP
 backend/app/api/         FastAPI routes
 backend/scripts/         CLI commands
+backend/config/          editable scoring rules (signals.yaml)
 frontend/                Next.js review dashboard
 prompts/                 LLM and GTM prompts
 ```
@@ -74,6 +77,7 @@ prompts/                 LLM and GTM prompts
 6. Prefer small, reviewable changes.
 7. Do not add auth, email sending, queues, or background jobs until the MVP is validated.
 8. Do not commit secrets or generated data exports.
+9. Scoring rules live in `backend/config/signals.yaml` — do not hardcode keywords or weights in Python.
 
 ## External API rules
 
@@ -96,19 +100,12 @@ If touching frontend:
 npm run build
 ```
 
-## First recommended Claude Code task
-
-```text
-Read CLAUDE.md, PRD.md, and docs/IMPLEMENTATION_PLAN.md. Inspect the repo. Do not code yet. Summarize the architecture, then recommend the smallest next task.
-```
-
 ## High-priority improvements
 
 1. CSV import of seed domains.
-2. Better company one-liner extraction from meta descriptions.
-3. Manual review status updates.
-4. Clay import merge after enrichment.
-5. Exa live discovery provider update.
-6. Figma Make UI polish.
+2. Meta description extraction for better one-liners.
+3. Manual review status updates in the dashboard.
+4. Persona rules moved into signals.yaml.
+5. Exa live discovery provider validation.
+6. Outreach email body visible in the dashboard card.
 7. Demo generator prompt for top 10 prospects.
-8. Optional hosted deployment once the local workflow produces useful leads.

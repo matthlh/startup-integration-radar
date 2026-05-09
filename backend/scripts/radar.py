@@ -18,7 +18,7 @@ from app.services.exporter import companies_to_csv
 from app.services.profiler import profile_company
 from app.storage.json_store import CompanyStore
 
-app = typer.Typer(help="Rutter Integration Radar CLI")
+app = typer.Typer(help="Integration Scout CLI")
 console = Console()
 store = CompanyStore()
 
