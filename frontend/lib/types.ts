@@ -54,19 +54,28 @@ export interface DemoConcept {
   estimated_build_minutes?: number;
 }
 
+export type ReviewStatus = "new" | "approved" | "skip" | "needs_research";
+
 export interface CompanyProfile {
   id: string;
   name: string;
   domain: string;
   website_url: string;
   one_liner: string;
+  company_summary?: string;
+  company_summary_source?: string;
   category: string;
+  inferred_category?: string;
+  category_confidence?: Confidence;
+  category_evidence?: string[];
   employee_count_estimate?: number | null;
   likely_customer_systems: string[];
   integration_need_hypothesis: string;
   evidence_summary: string;
+  crawl_quality_warning?: string;
   competitive_triggers: CompetitiveTrigger[];
   primary_persona?: PersonaRecommendation | null;
+  persona_reasoning?: string[];
   stage: PipelineStage;
   score: number;
   confidence: Confidence;
@@ -75,4 +84,5 @@ export interface CompanyProfile {
   personas: PersonaRecommendation[];
   outreach?: OutreachAsset;
   demo?: DemoConcept;
+  review_status?: ReviewStatus;
 }

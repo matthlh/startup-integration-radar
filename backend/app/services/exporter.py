@@ -121,6 +121,7 @@ def to_clay_row(profile: CompanyProfile) -> ClayExportRow:
         suggested_email_body=profile.outreach.body if profile.outreach else "",
         # Provenance
         source_pages_scanned=source_pages,
+        crawl_quality_warning=profile.crawl_quality_warning,
         # Clay workflow
         review_status=profile.review_status,
     )

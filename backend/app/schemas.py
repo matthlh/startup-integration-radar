@@ -148,7 +148,8 @@ class CompanyProfile(BaseModel):
     demo: DemoConcept | None = None
     disqualification_reason: str = ""
     pages_fetched: list[str] = Field(default_factory=list)
-    review_status: Literal["new", "approved", "skip"] = "new"
+    crawl_quality_warning: str = ""
+    review_status: Literal["new", "approved", "skip", "needs_research"] = "new"
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -223,6 +224,7 @@ class ClayExportRow(BaseModel):
     suggested_email_body: str = ""
     # ── Provenance ────────────────────────────────────────────────────────
     source_pages_scanned: str = ""
+    crawl_quality_warning: str = ""
     # ── Clay workflow ─────────────────────────────────────────────────────
     review_status: str = "new"
     notes: str = ""

@@ -10,11 +10,24 @@ from app.schemas import AnalyzeBatchRequest, AnalyzeCompanyRequest, CompanyProfi
 from app.services.discovery import discover_candidates
 from app.services.exporter import companies_to_csv, filter_companies
 from app.services.profiler import profile_company
+from app.services.seed_manager import (
+    SeedRow,
+    add_seed,
+    list_seeds,
+    remove_seed,
+)
 from app.storage.json_store import CompanyStore
 
 
 class ReviewStatusUpdate(BaseModel):
-    review_status: Literal["new", "approved", "skip"]
+    review_status: Literal["new", "approved", "skip", "needs_research"]
+
+
+class SeedCreate(BaseModel):
+    domain: str
+    company_name: str = ""
+    category: str = ""
+    notes: str = ""
 
 router = APIRouter()
 store = CompanyStore()
@@ -65,6 +78,33 @@ async def get_company(domain: str):
     if not profile:
         raise HTTPException(status_code=404, detail="Company not found")
     return profile
+
+
+@router.get("/seeds")
+async def list_seed_rows():
+    return [row.to_dict() for row in list_seeds()]
+
+
+@router.post("/seeds")
+async def add_seed_row(seed: SeedCreate):
+    try:
+        row, added = add_seed(
+            domain=seed.domain,
+            company_name=seed.company_name,
+            category=seed.category,
+            notes=seed.notes,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    return {"row": row.to_dict(), "added": added}
+
+
+@router.delete("/seeds/{domain}")
+async def delete_seed_row(domain: str):
+    removed = remove_seed(domain)
+    if removed is None:
+        raise HTTPException(status_code=404, detail="Seed not found")
+    return {"removed": removed.to_dict()}
 
 
 @router.patch("/companies/{domain}/review_status", response_model=CompanyProfile)

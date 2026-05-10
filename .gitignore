@@ -18,9 +18,14 @@ npm-debug.log*
 # Data outputs
 backend/data/*.sqlite3
 backend/data/*.csv
+backend/data/companies.json
+backend/data/discovered_seeds.csv
 !backend/data/seed_companies.csv
 !data/examples/*.csv
 exports/
+
+# Next.js generated
+frontend/next-env.d.ts
 
 # OS/editor
 .DS_Store

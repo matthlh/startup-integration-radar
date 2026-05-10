@@ -12,7 +12,10 @@
 # Total score = sum of all signal buckets, capped at 100.
 # Disqualifier keywords subtract 35 points and may trigger disqualification.
 #
-# TOTAL MAX SCORE = sum of all max_points below (should equal ~100).
+# Note on totals: the buckets below sum to more than 100 on purpose, so a
+# company doesn't need to hit *every* signal to score well — three or four
+# strong signals already saturate the 100-point cap. The 'disqualifier' bucket
+# is intentionally large (subtracts 35 per hit) to dominate the cap when fired.
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Name of your company — used in outreach email templates and demo concepts.

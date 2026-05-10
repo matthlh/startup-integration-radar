@@ -19,6 +19,42 @@ EMPLOYEE_PATTERNS = [
     re.compile(r"(\d{1,5})\+\s+(?:employees|people|team members)", re.I),
 ]
 
+# Whole-phrase regexes for the "small/large company" fallback. Substring matches
+# fired on words like "founding" inside "since their founding" and tagged
+# 350-person unicorns as 25-person founder-led shops.
+SMALL_COMPANY_PHRASES = [
+    re.compile(r"\bseed stage\b", re.I),
+    re.compile(r"\bpre[- ]seed\b", re.I),
+    re.compile(r"\bsmall team of\b", re.I),
+    re.compile(r"\bfounding team is\b", re.I),
+    re.compile(r"\bfounding team of\b", re.I),
+    re.compile(r"\bjust\s+\d+\s+(?:of us|people)\b", re.I),
+]
+LARGE_COMPANY_PHRASES = [
+    re.compile(r"\bseries b\b", re.I),
+    re.compile(r"\bseries c\b", re.I),
+    re.compile(r"\bseries d\b", re.I),
+    re.compile(r"\benterprise scale\b", re.I),
+    re.compile(r"\bglobal team of\b", re.I),
+    re.compile(r"\bglobal company\b", re.I),
+    re.compile(r"\bover \d{3,}\s+(?:employees|people)\b", re.I),
+]
+
+# Hints that the homepage we fetched is parked, generic, or otherwise not the
+# company we intended to crawl. Used to set crawl_quality_warning so the
+# operator can see at a glance that the row is unreliable.
+PARKED_DOMAIN_PHRASES = [
+    "this domain is for sale",
+    "buy this domain",
+    "domain for sale",
+    "godaddy",
+    "namecheap",
+    "directory of useful information",
+    "register this domain",
+    "parked",
+    "checking your browser",
+]
+
 
 DEFAULT_AI_CATEGORY = "vertical AI / workflow automation"
 DEFAULT_FALLBACK_CATEGORY = "B2B workflow software"
@@ -215,12 +251,39 @@ def infer_employee_count_estimate(text: str) -> int | None:
     if candidates:
         return max(candidates)
 
-    lowered = clean.lower()
-    if any(phrase in lowered for phrase in ["seed stage", "pre-seed", "small team", "founding team"]):
+    if any(pattern.search(clean) for pattern in SMALL_COMPANY_PHRASES):
         return 25
-    if any(phrase in lowered for phrase in ["series b", "series c", "enterprise scale", "global team"]):
+    if any(pattern.search(clean) for pattern in LARGE_COMPANY_PHRASES):
         return 100
     return None
+
+
+def detect_crawl_quality_warning(
+    homepage: FetchedPage | None, pages: list[FetchedPage]
+) -> str:
+    """Return a human-readable warning string when the crawl looks unreliable.
+
+    Empty string means no warning. Surfaces in the dashboard and CSV so junk
+    rows (parked domains, blocked crawlers, missing homepages) are not silently
+    shipped to Clay.
+    """
+    if not pages:
+        return "No pages were fetched — domain may be unreachable or blocking the crawler."
+    if homepage is None:
+        return "Homepage was not reachable; analysis ran against secondary pages only."
+
+    title = (homepage.title or "").lower()
+    body = (homepage.text or "").lower()
+    haystack = f"{title} {homepage.meta_description.lower()} {body[:2000]}"
+    for phrase in PARKED_DOMAIN_PHRASES:
+        if phrase in haystack:
+            return f"Homepage looks like a parked or placeholder page (matched '{phrase}')."
+
+    if len(homepage.text) < 500:
+        return "Homepage returned very little text — analysis may be unreliable."
+    if len(pages) < 2:
+        return "Only the homepage was reachable; secondary pages (docs, careers, etc.) failed."
+    return ""
 
 
 async def profile_company(domain: str, use_llm: bool = False) -> CompanyProfile:
@@ -251,6 +314,8 @@ async def profile_company(domain: str, use_llm: bool = False) -> CompanyProfile:
     employee_count_estimate = infer_employee_count_estimate(combined_text)
     company_summary, company_summary_source = select_company_summary(homepage)
 
+    crawl_quality_warning = detect_crawl_quality_warning(homepage, pages)
+
     profile = CompanyProfile(
         name=name,
         domain=normalized,
@@ -266,6 +331,7 @@ async def profile_company(domain: str, use_llm: bool = False) -> CompanyProfile:
         employee_count_estimate=employee_count_estimate,
         likely_customer_systems=systems,
         pages_fetched=[page.url for page in pages],
+        crawl_quality_warning=crawl_quality_warning,
         evidence=evidence,
         evidence_summary=summarize_evidence(evidence),
         competitive_triggers=find_competitive_triggers(evidence),
@@ -286,4 +352,18 @@ async def profile_company(domain: str, use_llm: bool = False) -> CompanyProfile:
         profile.outreach = make_outreach(profile)
         profile.demo = await make_demo_concept(profile, use_llm=use_llm)
         profile.stage = PipelineStage.outbound_ready
+    return profile
+
+
+async def refresh_derived_fields(profile: CompanyProfile, use_llm: bool = False) -> CompanyProfile:
+    """Re-derive hypothesis / outreach / demo after the caller mutates the profile.
+
+    Use after applying seed-CSV overrides (e.g. profile.category = seed.category)
+    so the integration hypothesis, outreach, and demo concept reflect the final
+    category instead of the inferred one.
+    """
+    profile.integration_need_hypothesis = make_integration_hypothesis(profile)
+    if profile.score >= 55 and profile.stage != PipelineStage.disqualified:
+        profile.outreach = make_outreach(profile)
+        profile.demo = await make_demo_concept(profile, use_llm=use_llm)
     return profile
