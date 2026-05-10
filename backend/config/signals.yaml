@@ -236,6 +236,82 @@ signals:
       - local service
       - personal blog
 
+# ─── Personas ────────────────────────────────────────────────────────────────
+# Controls who to contact based on estimated company headcount.
+# small_company_threshold: companies below this employee count get the founder persona.
+# Titles and why-text are used in outreach and Clay export columns.
+# Trigger conditions (which signals add secondary personas) stay in code,
+# but all content — titles, rationale, priority — is editable here.
+personas:
+  small_company_threshold: 50
+
+  founder:
+    titles:
+      - Founder
+      - CEO
+      - Co-founder
+    why: "Founder owns integration tradeoffs directly at small companies."
+    priority: 5
+
+  product:
+    titles:
+      - Head of Product
+      - VP Product
+      - Product Lead
+      - Product Manager, Integrations
+    why: "Product likely owns roadmap tradeoffs when integrations block deals."
+    priority: 5
+
+  partnerships:
+    titles:
+      - Head of Partnerships
+      - Partnerships Lead
+      - Ecosystem Lead
+    why: "Partnerships may own integration coverage and ecosystem expansion."
+    priority: 4
+
+  engineering:
+    titles:
+      - CTO
+      - Head of Engineering
+      - Engineering Manager, Platform
+      - Integrations Lead
+    why: "Engineering feels the maintenance cost of one-off customer integrations."
+    priority: 4
+
+  solutions:
+    titles:
+      - Head of Solutions
+      - Solutions Engineering Lead
+      - Implementation Lead
+    why: "Solutions teams see integration friction during onboarding and enterprise pilots."
+    priority: 4
+
+# ─── Categories ───────────────────────────────────────────────────────────────
+# Used to label a company's vertical in the dashboard and CSV.
+# Checked in order against homepage text — first match wins.
+# If nothing matches, falls back to "vertical AI / workflow automation"
+# (when 'ai' or 'automation' is present) or "B2B workflow software".
+categories:
+  - name: automotive
+    keywords: [automotive, vehicle, dealer, fleet, inspection]
+  - name: construction tech
+    keywords: [construction, bim, contractor, subcontractor]
+  - name: sales automation
+    keywords: [sales engagement, sales automation, prospect, outbound sales]
+  - name: finance operations
+    keywords: [finance, invoice, payment, accounting, bookkeeping]
+  - name: healthcare operations
+    keywords: [health, patient, clinic, care, medical, ehr]
+  - name: logistics
+    keywords: [logistics, freight, dispatch, warehouse, shipping]
+  - name: legal tech
+    keywords: [legal, contract, matter, law firm, litigation]
+  - name: HR tech
+    keywords: [hris, payroll, hiring, recruiting, workforce]
+  - name: property tech
+    keywords: [property, real estate, landlord, tenant, leasing]
+
 # ─── Competitors to watch ─────────────────────────────────────────────────────
 # When any alias is found on a company page, a competitive_trigger is created.
 # Add any integration platform or competitor you want to detect.

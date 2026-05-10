@@ -4,22 +4,13 @@ import re
 
 from app.core.domain import company_name_from_domain, normalize_domain, website_url
 from app.core.scoring import score_evidence
+from app.core.signal_rules import get_config
 from app.core.signals import extract_evidence, summarize_evidence
 from app.providers.web_fetcher import fetch_company_pages
 from app.schemas import CompanyProfile, PipelineStage
 from app.services.competitive import find_competitive_triggers
 from app.services.outreach import choose_likely_systems, make_demo_concept, make_integration_hypothesis, make_outreach
 from app.services.persona import recommend_personas, select_primary_persona
-
-CATEGORY_HINTS = [
-    ("automotive", ["automotive", "vehicle", "dealer", "fleet", "inspection"]),
-    ("construction tech", ["construction", "bim", "contractor", "project"]),
-    ("sales automation", ["sales", "prospect", "lead", "outbound"]),
-    ("finance operations", ["finance", "invoice", "payment", "accounting"]),
-    ("healthcare operations", ["health", "patient", "clinic", "care"]),
-    ("logistics", ["logistics", "freight", "dispatch", "warehouse"]),
-    ("legal tech", ["legal", "contract", "matter", "law firm"]),
-]
 
 
 EMPLOYEE_PATTERNS = [
@@ -30,10 +21,15 @@ EMPLOYEE_PATTERNS = [
 
 
 def infer_category(text: str) -> str:
+    """Infer company vertical from text.
+
+    Should be called with homepage text only — docs and careers pages mention
+    customer system names (e.g. Procore, Autodesk) that pollute the result.
+    """
     lowered = text.lower()
-    for category, keywords in CATEGORY_HINTS:
-        if any(keyword in lowered for keyword in keywords):
-            return category
+    for entry in get_config().get("categories", []):
+        if any(kw in lowered for kw in entry.get("keywords", [])):
+            return entry["name"]
     if "ai" in lowered or "automation" in lowered:
         return "vertical AI / workflow automation"
     return "B2B workflow software"
@@ -83,7 +79,10 @@ async def profile_company(domain: str, use_llm: bool = False) -> CompanyProfile:
 
     score, confidence, signal_scores, stage, disqualification_reason = score_evidence(evidence)
     name = company_name_from_domain(normalized)
-    category = infer_category(combined_text)
+    # Use homepage text only for category — docs and careers pages mention
+    # customer system names that misattribute the company's vertical.
+    homepage_text = pages[0].text if pages else combined_text
+    category = infer_category(homepage_text)
     systems = choose_likely_systems(combined_text)
     employee_count_estimate = infer_employee_count_estimate(combined_text)
 

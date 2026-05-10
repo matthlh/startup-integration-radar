@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from collections import defaultdict
+from urllib.parse import urlparse
 
 from app.core.signal_rules import KEYWORD_EVIDENCE_TYPE, SIGNAL_KEYWORDS, SIGNAL_WEIGHTS
 from app.schemas import Evidence, EvidenceType, SignalName
@@ -39,17 +40,62 @@ def keyword_present(text: str, keyword: str) -> bool:
 
 
 def infer_source_context(source_url: str = "", page_title: str = "", snippet: str = "") -> str:
+    """Return a human-readable label for where evidence was found.
+
+    Detection order matters — more specific patterns are checked first.
+    URL path takes priority over title/snippet to avoid false matches.
+    """
+    url_path = urlparse(source_url).path.lower() if source_url else ""
     haystack = f"{source_url} {page_title} {snippet}".lower()
-    if any(token in haystack for token in ["careers", "jobs", "greenhouse", "lever", "ashby", "workable"]):
-        if any(role in haystack for role in ["backend", "engineer", "engineering", "developer"]):
+
+    # Careers / jobs — check URL path first for precision
+    if any(t in url_path for t in ["/careers", "/jobs", "/job/"]):
+        if any(r in haystack for r in ["engineer", "engineering", "backend", "developer", "platform", "integrations"]):
             return "engineering job posting"
         return "careers page"
-    if any(token in haystack for token in ["integrations", "marketplace", "partners"]):
-        return "integrations/partners page"
-    if any(token in haystack for token in ["docs", "developer", "api", "webhook"]):
-        return "developer documentation"
-    if any(token in haystack for token in ["security", "soc 2", "compliance"]):
-        return "security/enterprise page"
+    if any(t in haystack for t in ["greenhouse.io", "lever.co", "ashby.io", "workable.com"]):
+        if any(r in haystack for r in ["engineer", "engineering", "backend", "developer"]):
+            return "engineering job posting"
+        return "careers page"
+
+    # Integration / partner pages
+    if any(t in url_path for t in ["/integrations", "/marketplace", "/partners", "/ecosystem", "/apps"]):
+        return "integrations page"
+    if any(t in haystack for t in ["integrations page", "integration marketplace", "partner ecosystem"]):
+        return "integrations page"
+
+    # Developer docs
+    if any(t in url_path for t in ["/docs", "/developer", "/developers", "/api", "/webhooks", "/sdk", "/reference"]):
+        return "developer docs"
+    if any(t in haystack for t in ["api reference", "webhook docs", "developer documentation"]):
+        return "developer docs"
+
+    # Security / compliance / trust
+    if any(t in url_path for t in ["/security", "/compliance", "/trust", "/privacy"]):
+        return "security page"
+    if any(t in haystack for t in ["soc 2", "soc2", "trust center", "security compliance"]):
+        return "security page"
+
+    # Product / platform / solutions / features
+    if any(t in url_path for t in ["/product", "/platform", "/solutions", "/features", "/how-it-works"]):
+        return "product page"
+
+    # Customer-facing social proof
+    if any(t in url_path for t in ["/customers", "/case-studies", "/case_studies", "/stories", "/success", "/testimonials"]):
+        return "customer case studies"
+
+    # Pricing
+    if "/pricing" in url_path:
+        return "pricing page"
+
+    # About / company / team
+    if any(t in url_path for t in ["/about", "/team", "/company", "/who-we-are"]):
+        return "about page"
+
+    # Homepage — URL path is empty or just "/"
+    if source_url and url_path in ("", "/"):
+        return "homepage"
+
     return "website"
 
 
