@@ -6,11 +6,11 @@ from app.core.domain import company_name_from_domain, normalize_domain, website_
 from app.core.scoring import score_evidence
 from app.core.signal_rules import get_config
 from app.core.signals import extract_evidence, summarize_evidence
-from app.providers.web_fetcher import fetch_company_pages
-from app.schemas import CompanyProfile, PipelineStage
+from app.providers.web_fetcher import FetchedPage, classify_page_type, fetch_company_pages
+from app.schemas import CompanyProfile, Confidence, PipelineStage
 from app.services.competitive import find_competitive_triggers
 from app.services.outreach import choose_likely_systems, make_demo_concept, make_integration_hypothesis, make_outreach
-from app.services.persona import recommend_personas, select_primary_persona
+from app.services.persona import recommend_personas_with_reasoning, select_primary_persona
 
 
 EMPLOYEE_PATTERNS = [
@@ -20,23 +20,182 @@ EMPLOYEE_PATTERNS = [
 ]
 
 
-def infer_category(text: str) -> str:
-    """Infer company vertical from text.
+DEFAULT_AI_CATEGORY = "vertical AI / workflow automation"
+DEFAULT_FALLBACK_CATEGORY = "B2B workflow software"
 
-    Should be called with homepage text only — docs and careers pages mention
-    customer system names (e.g. Procore, Autodesk) that pollute the result.
+# Weight per page-type for category inference. The homepage dominates;
+# careers/docs/integrations mention customer systems (Procore, Autodesk, NetSuite)
+# that should count as integration evidence but not redirect the company's category.
+PAGE_TYPE_WEIGHTS: dict[str, float] = {
+    "homepage": 1.0,
+    "other": 0.5,
+    "blog": 0.3,
+    "integrations": 0.15,
+    "docs": 0.10,
+    "careers": 0.10,
+}
+
+# Multipliers within the homepage — title/meta carry more weight than body text.
+HOMEPAGE_FIELD_WEIGHTS: dict[str, float] = {
+    "title": 4.0,
+    "meta_description": 4.0,
+    "og_description": 3.0,
+    "h1_h2": 3.0,
+    "body": 2.0,
+}
+
+
+def _count_hits(text: str, keyword: str) -> int:
+    if not text or not keyword:
+        return 0
+    return text.lower().count(keyword.lower())
+
+
+def _homepage_field_texts(homepage: FetchedPage) -> dict[str, str]:
+    return {
+        "title": homepage.title,
+        "meta_description": homepage.meta_description,
+        "og_description": homepage.og_description,
+        "h1_h2": " ".join(homepage.h1 + homepage.h2),
+        "body": homepage.text,
+    }
+
+
+def _category_confidence(top_score: float, runner_up: float) -> str:
+    if top_score >= 6 and (runner_up == 0 or top_score >= runner_up * 2):
+        return "high"
+    if top_score >= 3:
+        return "medium"
+    return "low"
+
+
+def infer_category_weighted(
+    homepage: FetchedPage | None,
+    secondary_pages: list[FetchedPage],
+) -> tuple[str, str, list[str]]:
+    """Infer the company's vertical with page-type-weighted evidence.
+
+    Returns (inferred_category, category_confidence, category_evidence).
+    Homepage signals (title, meta description, headings, body) drive the result;
+    careers/docs/integrations pages contribute very little so an integrations
+    company with Procore/Autodesk in job postings does not get tagged as
+    construction tech.
+    """
+    categories = get_config().get("categories", []) or []
+    if not categories:
+        return DEFAULT_FALLBACK_CATEGORY, "low", []
+
+    scores: dict[str, float] = {entry["name"]: 0.0 for entry in categories}
+    evidence: dict[str, list[str]] = {entry["name"]: [] for entry in categories}
+
+    if homepage is not None:
+        fields = _homepage_field_texts(homepage)
+        for entry in categories:
+            cat = entry["name"]
+            for kw in entry.get("keywords", []):
+                for field_name, field_text in fields.items():
+                    hits = _count_hits(field_text, kw)
+                    if not hits:
+                        continue
+                    weight = HOMEPAGE_FIELD_WEIGHTS[field_name] * PAGE_TYPE_WEIGHTS["homepage"]
+                    scores[cat] += hits * weight
+                    evidence[cat].append(f"matched '{kw}' in homepage {field_name.replace('_', ' ')}")
+
+    for page in secondary_pages:
+        weight = PAGE_TYPE_WEIGHTS.get(page.page_type, PAGE_TYPE_WEIGHTS["other"])
+        if weight <= 0:
+            continue
+        for entry in categories:
+            cat = entry["name"]
+            for kw in entry.get("keywords", []):
+                hits = _count_hits(page.text, kw)
+                if not hits:
+                    continue
+                scores[cat] += hits * weight
+                evidence[cat].append(f"matched '{kw}' on {page.page_type} page")
+
+    ranked = sorted(scores.items(), key=lambda item: item[1], reverse=True)
+    top_name, top_score = ranked[0]
+    runner_up_score = ranked[1][1] if len(ranked) > 1 else 0.0
+
+    if top_score < 1.0:
+        # Nothing strong matched — try the AI/automation fallback against the homepage.
+        homepage_text = (homepage.text if homepage else "").lower()
+        if "ai" in homepage_text or "automation" in homepage_text:
+            return DEFAULT_AI_CATEGORY, "low", []
+        return DEFAULT_FALLBACK_CATEGORY, "low", []
+
+    confidence = _category_confidence(top_score, runner_up_score)
+    # Cap evidence list length so it stays Clay-friendly.
+    return top_name, confidence, evidence[top_name][:6]
+
+
+def infer_category(text: str) -> str:
+    """Legacy single-string entry point — kept so existing callers keep working.
+
+    Prefer infer_category_weighted() with full FetchedPage objects.
     """
     lowered = text.lower()
     for entry in get_config().get("categories", []):
         if any(kw in lowered for kw in entry.get("keywords", [])):
             return entry["name"]
     if "ai" in lowered or "automation" in lowered:
-        return "vertical AI / workflow automation"
-    return "B2B workflow software"
+        return DEFAULT_AI_CATEGORY
+    return DEFAULT_FALLBACK_CATEGORY
 
 
-def infer_one_liner(name: str, text: str) -> str:
-    clean = " ".join(text.split())
+SUMMARY_MIN_LEN = 40
+SUMMARY_MAX_LEN = 280
+
+
+def _clean_summary(value: str) -> str:
+    """Collapse whitespace and trim trailing punctuation noise."""
+    return " ".join(value.split()).strip()
+
+
+def select_company_summary(homepage: FetchedPage | None) -> tuple[str, str]:
+    """Pick the best deterministic company summary and return (summary, source).
+
+    Priority:
+      1. <meta name="description">
+      2. <meta property="og:description">
+      3. homepage H1/H2 (first H1, optionally joined with first H2)
+      4. fallback: first ~280 chars of cleaned page text
+    Returns ("", "") if the homepage is missing.
+    """
+    if homepage is None:
+        return "", ""
+
+    meta = _clean_summary(homepage.meta_description)
+    if SUMMARY_MIN_LEN <= len(meta) <= SUMMARY_MAX_LEN * 2:
+        return meta[:SUMMARY_MAX_LEN].rstrip(), "meta_description"
+
+    og = _clean_summary(homepage.og_description)
+    if SUMMARY_MIN_LEN <= len(og) <= SUMMARY_MAX_LEN * 2:
+        return og[:SUMMARY_MAX_LEN].rstrip(), "og_description"
+
+    # Try to build a summary from H1 and H2.
+    h1 = _clean_summary(homepage.h1[0]) if homepage.h1 else ""
+    h2 = _clean_summary(homepage.h2[0]) if homepage.h2 else ""
+    if h1 and h2 and h1.lower() != h2.lower():
+        combined = f"{h1} — {h2}"
+    else:
+        combined = h1 or h2
+    if len(combined) >= SUMMARY_MIN_LEN:
+        return combined[:SUMMARY_MAX_LEN].rstrip(), "h1_h2"
+
+    cleaned = _clean_summary(homepage.text)
+    if len(cleaned) >= SUMMARY_MIN_LEN:
+        return cleaned[:SUMMARY_MAX_LEN].rstrip(), "cleaned_text"
+
+    return "", ""
+
+
+def infer_one_liner(name: str, company_summary: str, fallback_text: str) -> str:
+    summary = _clean_summary(company_summary)
+    if summary:
+        return f"I was reading about {name} — {summary}"
+    clean = " ".join(fallback_text.split())
     if len(clean) < 80:
         return f"I was looking at {name}'s product and the workflow it supports."
     return f"I was looking at {name} and noticed you help teams with {clean[:180].rstrip()}..."
@@ -79,22 +238,34 @@ async def profile_company(domain: str, use_llm: bool = False) -> CompanyProfile:
 
     score, confidence, signal_scores, stage, disqualification_reason = score_evidence(evidence)
     name = company_name_from_domain(normalized)
-    # Use homepage text only for category — docs and careers pages mention
-    # customer system names that misattribute the company's vertical.
-    homepage_text = pages[0].text if pages else combined_text
-    category = infer_category(homepage_text)
+    # Page-type weighted inference: homepage signals dominate so docs/careers
+    # mentions of customer systems (Procore, Autodesk, NetSuite) do not redirect
+    # the company's vertical.
+    for page in pages:
+        if not page.page_type or page.page_type == "other":
+            page.page_type = classify_page_type(page.url)
+    homepage = next((p for p in pages if p.page_type == "homepage"), pages[0] if pages else None)
+    secondary_pages = [p for p in pages if p is not homepage]
+    inferred_category, category_confidence_str, category_evidence = infer_category_weighted(homepage, secondary_pages)
     systems = choose_likely_systems(combined_text)
     employee_count_estimate = infer_employee_count_estimate(combined_text)
+    company_summary, company_summary_source = select_company_summary(homepage)
 
     profile = CompanyProfile(
         name=name,
         domain=normalized,
         website_url=website_url(normalized),
-        one_liner=infer_one_liner(name, combined_text),
-        category=category,
+        one_liner=infer_one_liner(name, company_summary, combined_text),
+        company_summary=company_summary,
+        company_summary_source=company_summary_source,
+        category=inferred_category,
+        inferred_category=inferred_category,
+        category_confidence=Confidence(category_confidence_str),
+        category_evidence=category_evidence,
         customer_type="B2B teams using existing operational software",
         employee_count_estimate=employee_count_estimate,
         likely_customer_systems=systems,
+        pages_fetched=[page.url for page in pages],
         evidence=evidence,
         evidence_summary=summarize_evidence(evidence),
         competitive_triggers=find_competitive_triggers(evidence),
@@ -106,7 +277,11 @@ async def profile_company(domain: str, use_llm: bool = False) -> CompanyProfile:
     )
     profile.integration_need_hypothesis = make_integration_hypothesis(profile)
     profile.primary_persona = select_primary_persona(employee_count_estimate)
-    profile.personas = recommend_personas(signal_scores, score, employee_count_estimate)
+    personas, persona_reasoning = recommend_personas_with_reasoning(
+        signal_scores, score, employee_count_estimate
+    )
+    profile.personas = personas
+    profile.persona_reasoning = persona_reasoning
     if score >= 55 and stage != PipelineStage.disqualified:
         profile.outreach = make_outreach(profile)
         profile.demo = await make_demo_concept(profile, use_llm=use_llm)

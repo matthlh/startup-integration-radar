@@ -18,6 +18,20 @@ export async function analyzeDomain(domain: string): Promise<CompanyProfile> {
   return response.json();
 }
 
-export function clayExportUrl(): string {
-  return `${API_BASE}/exports/clay.csv`;
+export function clayExportUrl(status?: "approved" | "skip" | "new"): string {
+  const base = `${API_BASE}/exports/clay.csv`;
+  return status ? `${base}?status=${status}` : base;
+}
+
+export async function setReviewStatus(
+  domain: string,
+  reviewStatus: "new" | "approved" | "skip",
+): Promise<CompanyProfile> {
+  const response = await fetch(`${API_BASE}/companies/${domain}/review_status`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ review_status: reviewStatus }),
+  });
+  if (!response.ok) throw new Error("Failed to update review status");
+  return response.json();
 }

@@ -18,6 +18,11 @@
 # Name of your company — used in outreach email templates and demo concepts.
 your_company_name: "Integration Scout"
 
+# Scoring profile metadata — stamped into every Clay export row so you know
+# which version of the rules produced a given score.
+scoring_profile_name: "Integration Scout v1"
+scoring_rules_version: "1.0"
+
 # ─── Signals ─────────────────────────────────────────────────────────────────
 # max_points: most this signal can contribute to the total score
 # weight:     bonus multiplier when the same signal appears many times
@@ -237,11 +242,11 @@ signals:
       - personal blog
 
 # ─── Personas ────────────────────────────────────────────────────────────────
-# Controls who to contact based on estimated company headcount.
-# small_company_threshold: companies below this employee count get the founder persona.
-# Titles and why-text are used in outreach and Clay export columns.
-# Trigger conditions (which signals add secondary personas) stay in code,
-# but all content — titles, rationale, priority — is editable here.
+# Controls who to contact, including the routing rules.
+# - small_company_threshold: companies below this employee count get the founder persona.
+# - Each persona below has its title list, rationale, and priority.
+# - persona_rules (further below) controls which personas fire under which conditions —
+#   change them to retarget without editing Python.
 personas:
   small_company_threshold: 50
 
@@ -286,6 +291,81 @@ personas:
       - Implementation Lead
     why: "Solutions teams see integration friction during onboarding and enterprise pilots."
     priority: 4
+
+# ─── Persona routing rules ────────────────────────────────────────────────────
+# Each rule fires when its condition matches. Matching personas are added to the
+# recommendation list, deduplicated by name; the first matching primary rule
+# wins, the rest are added as secondaries.
+#
+# Condition shapes:
+#   employee_count: { lt: 50 }       — strictly less than 50
+#   employee_count: { gte: 50 }      — 50 or more
+#   employee_count: unknown          — employee count is None
+#   any_signal: [signal_name, ...]   — any of these signals has positive points
+#
+# The `reason` is appended verbatim to persona_reasoning so the operator
+# understands why each persona was suggested.
+persona_rules:
+  primary:
+    - name: small_company_founder
+      condition:
+        employee_count: { lt: 50 }
+      persona: founder
+      reason: "Company appears to have fewer than 50 employees; founders own integration tradeoffs directly at this size."
+
+    - name: scaled_company_product
+      condition:
+        employee_count: { gte: 50 }
+      persona: product
+      reason: "Company appears to have 50+ employees; Product typically owns integration roadmap tradeoffs at this size."
+
+    - name: unknown_size_default
+      condition:
+        employee_count: unknown
+      persona: product
+      reason: "Headcount is unknown; defaulting to Product as the most common owner of integration roadmap."
+
+  secondary:
+    - name: scaled_company_partnerships
+      condition:
+        employee_count: { gte: 50 }
+      persona: partnerships
+      reason: "At 50+ employees, Partnerships is often a parallel owner of integration coverage."
+
+    - name: partnership_language_signal
+      condition:
+        any_signal: [partner_ecosystem, integration_language, customer_system_complexity]
+      persona: partnerships
+      reason: "Public partnership/ecosystem language was detected, so Partnerships is likely an active stakeholder."
+
+    - name: developer_surface_signal
+      condition:
+        any_signal: [developer_surface, implementation_burden]
+      persona: engineering
+      reason: "API, SDK, webhook, or developer-docs language was detected, so Engineering owns the integration surface."
+
+    - name: developer_surface_solutions
+      condition:
+        any_signal: [developer_surface, implementation_burden]
+      persona: solutions
+      reason: "Heavy developer surface or implementation burden — Solutions teams feel the onboarding friction."
+
+  fallback:
+    - name: unknown_or_weak_founder_fallback
+      condition:
+        employee_count: unknown
+      persona: founder
+      reason: "When company size is unknown, founder outreach is a useful validation channel."
+      override_why: "Use founder outreach to validate whether integration pain is a real priority when company size is unknown or public signals are weaker."
+      override_priority: 3
+
+    - name: weak_score_founder_fallback
+      condition:
+        score_lt: 70
+      persona: founder
+      reason: "Public integration signals are weaker (score < 70); founder outreach can validate priority directly."
+      override_why: "Use founder outreach to validate whether integration pain is a real priority when company size is unknown or public signals are weaker."
+      override_priority: 3
 
 # ─── Categories ───────────────────────────────────────────────────────────────
 # Used to label a company's vertical in the dashboard and CSV.

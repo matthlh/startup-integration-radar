@@ -50,7 +50,7 @@ export default function Home() {
             pick the right persona, and generate outreach and a demo concept — all exportable to Clay.
           </p>
         </div>
-        <div className="mt-6 grid gap-3 md:grid-cols-[1fr_auto_auto]">
+        <div className="mt-6 grid gap-3 md:grid-cols-[1fr_auto_auto_auto]">
           <input
             value={domain}
             onChange={(event) => setDomain(event.target.value)}
@@ -65,9 +65,17 @@ export default function Home() {
             {loading ? "Analyzing..." : "Analyze domain"}
           </button>
           <a href={clayExportUrl()} className="rounded-2xl border border-white/20 px-5 py-3 text-center font-semibold text-white">
-            Export Clay CSV
+            Export all
+          </a>
+          <a href={clayExportUrl("approved")} className="rounded-2xl bg-emerald-500 px-5 py-3 text-center font-semibold text-white">
+            Export approved
           </a>
         </div>
+        <p className="mt-3 text-xs text-slate-400">
+          “Export all” downloads every company in the store. “Export approved” only includes companies whose review_status is set to
+          <code className="mx-1 rounded bg-white/10 px-1.5 py-0.5">approved</code>
+          (mark them via PATCH /companies/&lt;domain&gt;/review_status).
+        </p>
       </section>
 
       <section className="mt-6 grid gap-4 md:grid-cols-4">
@@ -80,7 +88,9 @@ export default function Home() {
       <section className="mt-8 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-2xl font-bold text-slate-950">Prospect queue</h2>
-          <p className="text-sm text-slate-500">Review score, evidence, persona, and demo concept before exporting.</p>
+          <p className="text-sm text-slate-500">
+            Review score, evidence, persona, and demo concept. Mark companies as approved before running the approved-only export.
+          </p>
         </div>
         <select
           value={stageFilter}

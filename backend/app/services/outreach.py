@@ -22,6 +22,14 @@ def make_integration_hypothesis(profile: CompanyProfile) -> str:
     )
 
 
+def _outreach_first_line(profile: CompanyProfile, fallback: str) -> str:
+    """Prefer company_summary (extracted from meta/OG/headings) over raw one-liners."""
+    summary = (profile.company_summary or "").strip()
+    if summary:
+        return f"I was reading about {profile.name} — {summary}"
+    return profile.one_liner or fallback
+
+
 def make_outreach(profile: CompanyProfile) -> OutreachAsset:
     if profile.competitive_triggers:
         return make_competitive_outreach(profile)
@@ -29,7 +37,10 @@ def make_outreach(profile: CompanyProfile) -> OutreachAsset:
     company = get_company_name()
     systems = profile.likely_customer_systems or ["their existing customer systems", "CRMs", "internal databases"]
     first_system = systems[0]
-    first_line = profile.one_liner or f"I was looking at {profile.name}'s product and the workflow it supports."
+    first_line = _outreach_first_line(
+        profile,
+        fallback=f"I was looking at {profile.name}'s product and the workflow it supports.",
+    )
     subject = f"Integration question for {profile.name}"
     body = f"""Hi {{{{first_name}}}},
 
@@ -59,7 +70,10 @@ def make_competitive_outreach(profile: CompanyProfile) -> OutreachAsset:
     company = get_company_name()
     trigger = profile.competitive_triggers[0]
     systems = profile.likely_customer_systems or ["CRM", "ERP", "customer operations tools"]
-    first_line = profile.one_liner or f"I was looking at {profile.name}'s product and integration surface."
+    first_line = _outreach_first_line(
+        profile,
+        fallback=f"I was looking at {profile.name}'s product and integration surface.",
+    )
     subject = f"Integration angle for {profile.name}"
     body = f"""Hi {{{{first_name}}}},
 

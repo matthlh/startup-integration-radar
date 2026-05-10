@@ -15,7 +15,7 @@ from rich.table import Table
 
 from app.services.csv_importer import parse_seed_csv
 from app.services.discovery import discover_candidates
-from app.services.exporter import companies_to_csv
+from app.services.exporter import companies_to_csv, filter_companies
 from app.services.profiler import profile_company
 from app.storage.json_store import CompanyStore
 
@@ -134,12 +134,25 @@ def analyze_csv(
 
 
 @app.command()
-def export(path: Path = typer.Argument(Path("exports/clay_export.csv"))):
-    """Export saved companies to a Clay-ready CSV."""
+def export(
+    path: Path = typer.Argument(Path("exports/clay_export.csv")),
+    status: str = typer.Option(
+        None,
+        "--status",
+        help="Filter by review_status (e.g. 'approved'). Default: export all companies.",
+    ),
+):
+    """Export saved companies to a Clay-ready CSV.
+
+    By default, all companies in the local store are exported. Pass --status approved
+    (or any other review_status value) to export only matching companies.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
-    csv_text = companies_to_csv(store.list())
+    profiles = filter_companies(store.list(), status=status)
+    csv_text = companies_to_csv(profiles)
     path.write_text(csv_text, encoding="utf-8")
-    console.print(f"Wrote {path}")
+    label = f" ({status} only)" if status else ""
+    console.print(f"Wrote {path} — {len(profiles)} companies{label}")
 
 
 @app.command()

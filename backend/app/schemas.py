@@ -123,7 +123,12 @@ class CompanyProfile(BaseModel):
     domain: str
     website_url: str
     one_liner: str = ""
+    company_summary: str = ""
+    company_summary_source: str = ""
     category: str = ""
+    inferred_category: str = ""
+    category_confidence: Confidence = Confidence.low
+    category_evidence: list[str] = Field(default_factory=list)
     customer_type: str = ""
     employee_count_estimate: int | None = None
     likely_customer_systems: list[str] = Field(default_factory=list)
@@ -131,6 +136,7 @@ class CompanyProfile(BaseModel):
     evidence_summary: str = ""
     competitive_triggers: list[CompetitiveTrigger] = Field(default_factory=list)
     primary_persona: PersonaRecommendation | None = None
+    persona_reasoning: list[str] = Field(default_factory=list)
     stage: PipelineStage = PipelineStage.discovered
     score: int = Field(default=0, ge=0, le=100)
     confidence: Confidence = Confidence.low
@@ -141,6 +147,8 @@ class CompanyProfile(BaseModel):
     outreach: OutreachAsset | None = None
     demo: DemoConcept | None = None
     disqualification_reason: str = ""
+    pages_fetched: list[str] = Field(default_factory=list)
+    review_status: Literal["new", "approved", "skip"] = "new"
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -183,24 +191,38 @@ class DiscoveryCandidate(BaseModel):
 
 
 class ClayExportRow(BaseModel):
+    # ── Identity ──────────────────────────────────────────────────────────
     company_name: str
     domain: str
-    website: str
+    website_url: str
     category: str
+    inferred_category: str = ""
+    category_confidence: str = ""
+    company_summary: str = ""
+    company_summary_source: str = ""
+    # ── Scoring ───────────────────────────────────────────────────────────
     score: int
-    confidence: str
-    employee_count_estimate: int | None = None
-    integration_need_hypothesis: str
-    evidence_summary: str
-    competitive_trigger: str = ""
-    competitive_angle: str = ""
-    persona_priority_1: str
-    suggested_titles: str
-    contact_name: str = ""
-    contact_title: str = ""
-    contact_linkedin: str = ""
-    contact_email: str = ""
-    outreach_subject: str = ""
-    outreach_body: str = ""
+    scoring_rules_version: str = ""
+    scoring_profile_name: str = ""
+    scoring_explanation: str = ""
+    signal_score_breakdown: str = ""
+    # ── Evidence ──────────────────────────────────────────────────────────
+    evidence_summary: str = ""
+    integration_need_hypothesis: str = ""
+    # ── Personas / contacts ───────────────────────────────────────────────
+    primary_persona: str = ""
+    secondary_personas: str = ""
+    suggested_contact_titles: str = ""
+    clay_contact_search_titles: str = ""
+    persona_reasoning: str = ""
+    # ── Competitive context ───────────────────────────────────────────────
+    competitor_or_existing_stack_trigger: str = ""
+    # ── Outreach assets ───────────────────────────────────────────────────
     demo_concept: str = ""
-    status: str = "new"
+    suggested_email_subject: str = ""
+    suggested_email_body: str = ""
+    # ── Provenance ────────────────────────────────────────────────────────
+    source_pages_scanned: str = ""
+    # ── Clay workflow ─────────────────────────────────────────────────────
+    review_status: str = "new"
+    notes: str = ""
