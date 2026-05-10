@@ -3,14 +3,17 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from app.config import get_settings
 from app.schemas import CompanyProfile
 
-DEFAULT_STORE = Path(__file__).resolve().parents[2] / "data" / "companies.json"
+
+def _default_store_path() -> Path:
+    return get_settings().companies_store_path
 
 
 class CompanyStore:
-    def __init__(self, path: Path = DEFAULT_STORE):
-        self.path = path
+    def __init__(self, path: Path | None = None):
+        self.path = path if path is not None else _default_store_path()
         self.path.parent.mkdir(parents=True, exist_ok=True)
         if not self.path.exists():
             self.path.write_text("[]", encoding="utf-8")

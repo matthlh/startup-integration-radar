@@ -13,11 +13,20 @@ import csv
 from dataclasses import dataclass
 from pathlib import Path
 
+from app.config import get_settings
 from app.core.domain import normalize_domain
 
 
 SEED_COLUMNS = ["company_name", "domain", "category", "notes"]
-DEFAULT_SEED_PATH = Path(__file__).resolve().parents[2] / "data" / "seed_companies.csv"
+
+
+def _default_seed_path() -> Path:
+    return get_settings().seed_csv_path
+
+
+# Kept as a property-like accessor so tests can monkeypatch DATA_DIR before
+# the module is imported.
+DEFAULT_SEED_PATH = _default_seed_path()
 
 
 @dataclass
@@ -37,7 +46,9 @@ class SeedRow:
 
 
 def _resolve(path: Path | None) -> Path:
-    return path if path is not None else DEFAULT_SEED_PATH
+    # Re-read the default each call so DATA_DIR overrides set at runtime
+    # (e.g. in tests via monkeypatch) take effect.
+    return path if path is not None else _default_seed_path()
 
 
 def list_seeds(path: Path | None = None) -> list[SeedRow]:

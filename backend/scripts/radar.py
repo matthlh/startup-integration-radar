@@ -55,8 +55,13 @@ console = Console()
 store = CompanyStore()
 
 
-DEFAULT_DISCOVERY_CSV = Path("data/discovered_seeds.csv")
-DEFAULT_SEED_CSV = Path("data/seed_companies.csv")
+from app.config import get_settings as _get_settings
+
+# DATA_DIR-aware defaults so the CLI does the right thing in hosted environments
+# while keeping the legacy `backend/data` layout for local dev.
+_settings = _get_settings()
+DEFAULT_DISCOVERY_CSV = _settings.discovery_csv_path
+DEFAULT_SEED_CSV = _settings.seed_csv_path
 DEFAULT_EXPORT_CSV = Path("../exports/clay_export.csv")
 
 

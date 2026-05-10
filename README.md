@@ -234,6 +234,17 @@ Every command has its own `--help` with examples.
 
 ---
 
+## Hosting
+
+This whole app is designed to run locally — but when you want a hosted copy your brother (or anyone else) can use, the recommended path is:
+
+- **Frontend** on Vercel (one-click Next.js).
+- **Backend** on Railway with a persistent volume, or Render with a persistent disk.
+- Set `DATA_DIR` and `ALLOWED_ORIGINS` env vars; the backend already supports them.
+- No database needed for the MVP — the JSON store on the mounted volume is enough.
+
+Full walkthrough with env vars, `railway.json`, `render.yaml`, persistent-storage warnings, and rollback tips: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
 ## Architecture
 
 ```

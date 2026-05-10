@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 
+from app.config import get_settings
 from app.schemas import AnalyzeBatchRequest, AnalyzeCompanyRequest, CompanyProfile, DiscoveryRequest
 from app.services.discovery import discover_candidates
 from app.services.exporter import companies_to_csv, filter_companies
@@ -35,7 +36,19 @@ store = CompanyStore()
 
 @router.get("/health")
 async def health() -> dict:
-    return {"ok": True, "service": "integration-radar"}
+    """Healthcheck used by Render/Railway and the dashboard.
+
+    Returns service name, storage path, and version so smoke-testing a hosted
+    deployment is one curl call away.
+    """
+    settings = get_settings()
+    return {
+        "ok": True,
+        "service": "integration-scout",
+        "storage": settings.data_dir,
+        "version": "0.3.0",
+        "external_calls_enabled": settings.enable_external_api_calls,
+    }
 
 
 @router.post("/discover")

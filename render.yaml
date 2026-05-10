@@ -1,0 +1,28 @@
+# Render Blueprint for the Integration Scout backend.
+# Apply via: https://render.com/docs/infrastructure-as-code
+#
+# Frontend stays on Vercel — Render only hosts the FastAPI service.
+
+services:
+  - type: web
+    name: integration-scout-backend
+    runtime: python
+    rootDir: backend
+    plan: starter             # smallest paid plan; "free" works for smoke tests
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: DATA_DIR
+        value: /var/data        # set this AFTER attaching the persistent disk
+      - key: ALLOWED_ORIGINS
+        sync: false             # fill in with your Vercel URL after the FE is up
+      - key: ENABLE_EXTERNAL_API_CALLS
+        value: "false"
+      - key: USER_AGENT
+        value: IntegrationScoutBot/0.3 contact=you@example.com
+    disk:
+      name: integration-scout-data
+      mountPath: /var/data
+      sizeGB: 1
