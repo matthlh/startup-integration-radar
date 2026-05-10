@@ -80,8 +80,11 @@ python scripts/radar.py analyze monk.ai openspace.ai
 # Analyze domains from a plain text file (one per line)
 python scripts/radar.py analyze-file my_domains.txt
 
-# Discover candidates (dry-run uses built-in fallback list)
-python scripts/radar.py discover "vertical AI companies needing integrations"
+# Discover candidates and save them to a seed CSV for review
+python scripts/radar.py discover "vertical AI companies needing integrations" --limit 25
+
+# Use Exa for live discovery (requires ENABLE_EXTERNAL_API_CALLS=true + EXA_API_KEY)
+python scripts/radar.py discover "companies like monk.ai that likely need integrations" --limit 25 --live
 
 # Export saved companies to Clay CSV (all companies by default)
 python scripts/radar.py export ../exports/clay_export.csv
@@ -121,6 +124,35 @@ ENABLE_EXTERNAL_API_CALLS=true
 EXA_API_KEY=...
 ANTHROPIC_API_KEY=...
 ```
+
+## Discovery workflow
+
+Exa is used **only for finding candidate companies**, never for contact enrichment (Clay handles that). Discovery never auto-analyzes — it writes a seed CSV that you review first.
+
+```text
+discover → review seed CSV → analyze-csv → export Clay CSV → upload to Clay
+```
+
+```bash
+# 1. Discover candidates → writes to backend/data/discovered_seeds.csv
+python scripts/radar.py discover "AI inspection companies needing integrations" --limit 25 --live
+
+# 2. Review the CSV — edit, delete obvious bad fits, copy good ones into seed_companies.csv
+open data/discovered_seeds.csv
+
+# 3. Analyze the reviewed seed list
+python scripts/radar.py analyze-csv data/discovered_seeds.csv
+
+# 4. Review cards in the dashboard and mark approved companies
+
+# 5. Export only approved companies to Clay
+python scripts/radar.py export ../exports/clay_export.csv --status approved
+```
+
+### Safety rails
+
+- Live Exa calls require **both** `ENABLE_EXTERNAL_API_CALLS=true` and a non-empty `EXA_API_KEY` in `.env`. If either is missing, the CLI prints an explanation and silently falls back to a built-in dry-run list — no money spent.
+- Discovery never overwrites companies you've already analyzed; it only writes a seed CSV.
 
 ## Clay workflow
 

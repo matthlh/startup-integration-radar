@@ -9,10 +9,13 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+import csv
+
 import typer
 from rich.console import Console
 from rich.table import Table
 
+from app.providers.exa import ExternalCallsDisabled
 from app.services.csv_importer import parse_seed_csv
 from app.services.discovery import discover_candidates
 from app.services.exporter import companies_to_csv, filter_companies
@@ -24,21 +27,79 @@ console = Console()
 store = CompanyStore()
 
 
+DEFAULT_DISCOVERY_CSV = Path("data/discovered_seeds.csv")
+
+
+def _write_seed_csv(candidates, path: Path) -> None:
+    """Write DiscoveryCandidate list to a CSV compatible with parse_seed_csv."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="", encoding="utf-8") as fh:
+        writer = csv.DictWriter(fh, fieldnames=["company_name", "domain", "category", "notes"])
+        writer.writeheader()
+        for candidate in candidates:
+            writer.writerow({
+                "company_name": candidate.name,
+                "domain": candidate.domain,
+                "category": "",
+                "notes": (candidate.reason or "").replace("\n", " ").strip()[:300],
+            })
+
+
 @app.command()
-def discover(query: str, limit: int = 20, live: bool = False):
-    """Discover candidate companies. Dry-run uses built-in fallback candidates."""
+def discover(
+    query: str,
+    limit: int = typer.Option(20, "--limit"),
+    live: bool = typer.Option(
+        False,
+        "--live",
+        help="Call the Exa API. Requires ENABLE_EXTERNAL_API_CALLS=true and EXA_API_KEY in .env.",
+    ),
+    save: Path = typer.Option(
+        DEFAULT_DISCOVERY_CSV,
+        "--save",
+        help="Where to write the seed CSV. Pass --save '' to skip writing.",
+    ),
+):
+    """Discover candidate companies and save them to a seed CSV for review.
+
+    Discovery does NOT auto-analyze companies. Review the generated CSV first,
+    edit/remove rows, then run `analyze-csv` against the same path.
+
+    Dry-run uses a built-in fallback list. Pass --live to call Exa (requires
+    ENABLE_EXTERNAL_API_CALLS=true and EXA_API_KEY in your .env).
+    """
 
     async def _run():
-        candidates = await discover_candidates(query, limit=limit, dry_run=not live)
-        table = Table(title="Discovery candidates")
-        table.add_column("Name")
-        table.add_column("Domain")
-        table.add_column("Reason")
-        for candidate in candidates:
-            table.add_row(candidate.name, candidate.domain, candidate.reason[:80])
-        console.print(table)
+        try:
+            return await discover_candidates(query, limit=limit, dry_run=not live)
+        except ExternalCallsDisabled as exc:
+            console.print(f"[red]External API calls are disabled:[/red] {exc}")
+            console.print(
+                "Set [bold]ENABLE_EXTERNAL_API_CALLS=true[/bold] and [bold]EXA_API_KEY=...[/bold] "
+                "in [cyan].env[/cyan] to enable live discovery. Re-running in dry-run mode now."
+            )
+            return await discover_candidates(query, limit=limit, dry_run=True)
 
-    asyncio.run(_run())
+    candidates = asyncio.run(_run())
+
+    table = Table(title=f"Discovery candidates ({'live: Exa' if live else 'dry-run'})")
+    table.add_column("Name")
+    table.add_column("Domain")
+    table.add_column("Reason")
+    for candidate in candidates:
+        table.add_row(candidate.name, candidate.domain, candidate.reason[:80])
+    console.print(table)
+
+    if str(save):
+        _write_seed_csv(candidates, save)
+        console.print(
+            f"\n[green]Saved {len(candidates)} candidates to[/green] [cyan]{save}[/cyan]"
+        )
+        console.print(
+            f"Review the CSV, then run: [bold]python scripts/radar.py analyze-csv {save}[/bold]"
+        )
+    else:
+        console.print("\n[yellow]Skipped writing seed CSV (--save '').[/yellow]")
 
 
 @app.command()
