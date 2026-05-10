@@ -71,10 +71,13 @@ Edit it to:
 ```bash
 cd backend
 
-# Analyze one or more domains
-python scripts/radar.py analyze monk.ai
+# Analyze companies from a CSV (the main batch workflow)
+python scripts/radar.py analyze-csv data/seed_companies.csv
 
-# Analyze domains from a file (one per line)
+# Analyze one or more domains directly
+python scripts/radar.py analyze monk.ai openspace.ai
+
+# Analyze domains from a plain text file (one per line)
 python scripts/radar.py analyze-file my_domains.txt
 
 # Discover candidates (dry-run uses built-in fallback list)
@@ -86,6 +89,27 @@ python scripts/radar.py export ../exports/clay_export.csv
 # Reset the local store
 python scripts/radar.py reset
 ```
+
+## CSV seed file
+
+The seed file lives at `backend/data/seed_companies.csv`. Only `domain` is required:
+
+```csv
+company_name,domain,category,notes
+Monk,monk.ai,automotive,AI inspection platform — customers need fleet and claims sync
+OpenSpace,openspace.ai,construction tech,Site documentation — customers need Procore/Autodesk sync
+```
+
+Supported columns:
+
+| Column | Required | Description |
+|---|---|---|
+| `domain` | Yes | Company domain (e.g. `monk.ai`) |
+| `company_name` | No | Overrides the name inferred from the domain |
+| `category` | No | Overrides the category inferred from the page |
+| `notes` | No | Freeform context — not used in scoring |
+
+Add as many rows as you want. Run `analyze-csv` to process them all.
 
 Live Exa/Claude calls are off by default. To enable:
 
@@ -111,11 +135,11 @@ Each row in the Clay export includes:
 
 ## Recommended workflow
 
-1. Add seed domains to `backend/data/seed_companies.csv`.
-2. Run `analyze-file` on those domains.
+1. Edit `backend/data/seed_companies.csv` — add your target domains.
+2. Run `python scripts/radar.py analyze-csv data/seed_companies.csv`.
 3. Review cards in the dashboard — check score, evidence, persona.
-4. Export CSV and upload to Clay.
-5. Use Clay to enrich contacts and find emails.
+4. Run `python scripts/radar.py export ../exports/clay_export.csv`.
+5. Upload CSV to Clay and enrich contacts.
 6. Send 10 personalized emails manually.
 7. Build Vercel demos for high-score non-responders.
 8. Only then automate more discovery with Exa.

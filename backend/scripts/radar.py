@@ -13,6 +13,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from app.services.csv_importer import parse_seed_csv
 from app.services.discovery import discover_candidates
 from app.services.exporter import companies_to_csv
 from app.services.profiler import profile_company
@@ -65,6 +66,71 @@ def analyze_file(path: Path, use_llm: bool = False):
     """Analyze domains from a plain text file, one domain per line."""
     domains = [line.strip() for line in path.read_text().splitlines() if line.strip() and not line.startswith("#")]
     analyze(domains, use_llm=use_llm)
+
+
+@app.command("analyze-csv")
+def analyze_csv(
+    path: Path = typer.Argument(Path("data/seed_companies.csv")),
+    use_llm: bool = False,
+):
+    """Analyze companies from a CSV file.
+
+    Columns: domain (required), company_name, category, notes (all optional).
+    Results are saved to the local store and can be exported with 'export'.
+    """
+    if not path.exists():
+        console.print(f"[red]File not found:[/red] {path}")
+        raise typer.Exit(1)
+
+    seeds = parse_seed_csv(path)
+    if not seeds:
+        console.print(f"[yellow]No valid domains found in {path}[/yellow]")
+        raise typer.Exit(0)
+
+    console.print(f"Found [bold]{len(seeds)}[/bold] companies in {path.name} — analyzing...")
+
+    async def _run() -> tuple[list[str], list[tuple[str, str]]]:
+        successes: list[str] = []
+        failures: list[tuple[str, str]] = []
+
+        table = Table(title=f"Results from {path.name}")
+        table.add_column("Company")
+        table.add_column("Domain")
+        table.add_column("Score", justify="right")
+        table.add_column("Confidence")
+        table.add_column("Stage")
+
+        for seed in seeds:
+            try:
+                profile = await profile_company(seed.domain, use_llm=use_llm)
+                if seed.company_name:
+                    profile.name = seed.company_name
+                if seed.category:
+                    profile.category = seed.category
+                store.upsert(profile)
+                table.add_row(
+                    profile.name,
+                    profile.domain,
+                    str(profile.score),
+                    profile.confidence.value,
+                    profile.stage.value,
+                )
+                successes.append(profile.domain)
+            except Exception as exc:
+                failures.append((seed.domain, str(exc)))
+                table.add_row(seed.domain, seed.domain, "—", "—", "[red]error[/red]")
+
+        console.print(table)
+        return successes, failures
+
+    successes, failures = asyncio.run(_run())
+
+    console.print(
+        f"\n[green]✓ {len(successes)} succeeded[/green]"
+        + (f"  [red]✗ {len(failures)} failed[/red]" if failures else "")
+    )
+    for domain, error in failures:
+        console.print(f"  [red]✗[/red] {domain}: {error[:100]}")
 
 
 @app.command()
