@@ -12,12 +12,14 @@ import os
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 # Fallback default: <repo>/backend/data — the same path that worked before
 # DATA_DIR was a setting.
 _DEFAULT_DATA_DIR = (Path(__file__).resolve().parent.parent / "data").as_posix()
+_DEFAULT_ALLOWED_ORIGINS = "http://localhost:3000,http://127.0.0.1:3000"
 
 
 class Settings(BaseSettings):
@@ -28,7 +30,7 @@ class Settings(BaseSettings):
 
     # Storage / hosting
     data_dir: str = _DEFAULT_DATA_DIR
-    allowed_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
+    allowed_origins: str = _DEFAULT_ALLOWED_ORIGINS
 
     # Crawler
     user_agent: str = "IntegrationScoutBot/0.2 contact=you@example.com"
@@ -38,6 +40,26 @@ class Settings(BaseSettings):
     database_path: str = ""
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    @field_validator("data_dir", mode="before")
+    @classmethod
+    def _data_dir_blank_falls_back_to_default(cls, value: str | None) -> str:
+        """Treat `DATA_DIR=` (blank in .env) as "use the default".
+
+        Without this, a `DATA_DIR=` line in .env would set the field to an
+        empty string and downstream code would write to whatever the process
+        CWD happens to be.
+        """
+        if value is None or not str(value).strip():
+            return _DEFAULT_DATA_DIR
+        return str(value)
+
+    @field_validator("allowed_origins", mode="before")
+    @classmethod
+    def _allowed_origins_blank_falls_back_to_default(cls, value: str | None) -> str:
+        if value is None or not str(value).strip():
+            return _DEFAULT_ALLOWED_ORIGINS
+        return str(value)
 
     @property
     def data_path(self) -> Path:
@@ -77,6 +99,16 @@ def reset_settings_cache() -> None:
 # mutate os.environ between cases).
 def settings_from_env() -> Settings:
     return Settings()
+
+
+def settings_ignoring_dotenv() -> Settings:
+    """Return Settings as if no .env file existed on disk.
+
+    Use this in tests that assert on the "no DATA_DIR / no ALLOWED_ORIGINS"
+    default behavior — otherwise the test reads the developer's local .env
+    and false-fails depending on what they have set.
+    """
+    return Settings(_env_file=None)
 
 
 # Make DATA_DIR observable on import for one-time setup (e.g. ensuring the dir

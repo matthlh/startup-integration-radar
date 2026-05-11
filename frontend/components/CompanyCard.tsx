@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { CompanyProfile, ReviewStatus } from "../lib/types";
+import { cardIdForDomain } from "./CompanySidebar";
 
 function confidenceLabel(score: number) {
   if (score >= 80) return "Hot";
@@ -18,9 +19,11 @@ const REVIEW_OPTIONS: { value: ReviewStatus; label: string; tone: string }[] = [
 export function CompanyCard({
   company,
   onChangeReviewStatus,
+  active = false,
 }: {
   company: CompanyProfile;
   onChangeReviewStatus?: (domain: string, status: ReviewStatus) => Promise<void> | void;
+  active?: boolean;
 }) {
   const topPersona = company.primary_persona ?? company.personas?.[0];
   const trigger = company.competitive_triggers?.[0];
@@ -49,7 +52,12 @@ export function CompanyCard({
     .map((p) => p.persona);
 
   return (
-    <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <article
+      id={cardIdForDomain(company.domain)}
+      className={`scroll-mt-24 rounded-2xl border bg-white p-5 shadow-sm transition-colors ${
+        active ? "border-slate-900 ring-2 ring-slate-900/10" : "border-slate-200"
+      }`}
+    >
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1">
           <div className="flex flex-wrap items-center gap-2">

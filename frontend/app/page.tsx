@@ -10,6 +10,7 @@ import {
 } from "../lib/api";
 import type { CompanyProfile, ReviewStatus } from "../lib/types";
 import { CompanyCard } from "../components/CompanyCard";
+import { CompanySidebar, cardIdForDomain } from "../components/CompanySidebar";
 
 type ReviewFilter = "all" | ReviewStatus;
 
@@ -23,6 +24,10 @@ export default function Home() {
   const [stageFilter, setStageFilter] = useState("all");
   const [reviewFilter, setReviewFilter] = useState<ReviewFilter>("all");
   const [statusMessage, setStatusMessage] = useState<string>("");
+  const [errorMessage, setErrorMessage] = useState<string>("");
+  const [sidebarExpanded, setSidebarExpanded] = useState(true);
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+  const [activeDomain, setActiveDomain] = useState<string | null>(null);
 
   useEffect(() => {
     listCompanies().then((items) => {
@@ -44,14 +49,27 @@ export default function Home() {
     const total = companies.length;
     const above80 = companies.filter((c) => c.score >= 80).length;
     const approved = companies.filter((c) => (c.review_status ?? "new") === "approved").length;
-    const avg = total ? Math.round(companies.reduce((s, c) => s + c.score, 0) / total) : 0;
-    return { total, above80, approved, avg };
+    return { total, above80, approved };
   }, [companies]);
+
+  function scrollToCompany(target: string) {
+    setActiveDomain(target);
+    setMobileDrawerOpen(false);
+    if (typeof document === "undefined") return;
+    // Defer one tick so the active highlight renders before the scroll fires.
+    requestAnimationFrame(() => {
+      const el = document.getElementById(cardIdForDomain(target));
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    });
+  }
 
   async function onAddDomain() {
     if (!domain.trim()) return;
     setAdding(true);
     setStatusMessage("");
+    setErrorMessage("");
     try {
       const result = await addSeed({ domain: domain.trim(), company_name: name.trim() });
       if (result.added) {
@@ -62,7 +80,7 @@ export default function Home() {
       setDomain("");
       setName("");
     } catch {
-      setStatusMessage("Failed to add domain. Is the backend running?");
+      setErrorMessage("Could not add this domain — is the backend running?");
     } finally {
       setAdding(false);
     }
@@ -72,14 +90,31 @@ export default function Home() {
     if (!domain.trim()) return;
     setAnalyzing(true);
     setStatusMessage("");
+    setErrorMessage("");
     try {
       const profile = await analyzeDomain(domain.trim());
       setCompanies((prev) => [profile, ...prev.filter((p) => p.domain !== profile.domain)]);
-      setStatusMessage(`Analyzed ${profile.domain} — score ${profile.score}.`);
+
+      // A 200 response doesn't guarantee the crawl worked. Surface backend-flagged
+      // crawl issues here so the user understands why the score is 0 or unreliable.
+      const noPages = !profile.pages_fetched || profile.pages_fetched.length === 0;
+      if (noPages) {
+        setErrorMessage(
+          `Couldn't reach ${profile.domain}. The domain may not exist, may be blocking crawlers, or the homepage returned no readable content.`,
+        );
+      } else if (profile.crawl_quality_warning) {
+        setErrorMessage(
+          `Partial crawl for ${profile.domain}: ${profile.crawl_quality_warning}`,
+        );
+      } else {
+        setStatusMessage(`Analyzed ${profile.domain} — score ${profile.score}.`);
+      }
       setDomain("");
       setName("");
     } catch {
-      setStatusMessage("Analysis failed. Is the backend running?");
+      setErrorMessage(
+        `Analysis failed for "${domain.trim()}". Check the domain spelling and that the backend is running.`,
+      );
     } finally {
       setAnalyzing(false);
     }
@@ -90,12 +125,59 @@ export default function Home() {
       const updated = await apiSetReviewStatus(target, status);
       setCompanies((prev) => prev.map((c) => (c.domain === target ? updated : c)));
     } catch {
-      setStatusMessage(`Failed to update review status for ${target}.`);
+      setErrorMessage(`Failed to update review status for ${target}.`);
     }
   }
 
+  const hasCompanies = loaded && companies.length > 0;
+
   return (
-    <main className="mx-auto min-h-screen max-w-7xl px-6 py-8">
+    <div
+      className={`min-h-screen transition-[padding] duration-200 ${
+        hasCompanies ? (sidebarExpanded ? "lg:pl-[320px]" : "lg:pl-16") : ""
+      }`}
+    >
+      {/* Viewport-edge sidebar (desktop only). Hidden until at least one company exists. */}
+      {hasCompanies ? (
+        <aside
+          className={`fixed left-0 top-0 z-30 hidden h-screen border-r border-slate-200 bg-white shadow-lg lg:block ${
+            sidebarExpanded ? "w-[300px]" : "w-12"
+          }`}
+        >
+          <CompanySidebar
+            companies={companies}
+            activeDomain={activeDomain}
+            onSelect={scrollToCompany}
+            expanded={sidebarExpanded}
+            onToggleExpanded={() => setSidebarExpanded((v) => !v)}
+            edgeMode
+          />
+        </aside>
+      ) : null}
+
+      {/* Mobile drawer — slides in from the left, also viewport-edge. */}
+      {mobileDrawerOpen ? (
+        <div className="fixed inset-0 z-40 flex lg:hidden" role="dialog" aria-modal="true">
+          <div className="h-full w-80 max-w-[85vw] border-r border-slate-200 bg-white shadow-xl">
+            <CompanySidebar
+              companies={companies}
+              activeDomain={activeDomain}
+              onSelect={scrollToCompany}
+              expanded={true}
+              onToggleExpanded={() => setMobileDrawerOpen(false)}
+              edgeMode
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => setMobileDrawerOpen(false)}
+            className="flex-1 bg-slate-950/40 backdrop-blur-sm"
+            aria-label="Close company list"
+          />
+        </div>
+      ) : null}
+
+      <main className="mx-auto min-h-screen max-w-7xl px-6 py-8">
       <section className="rounded-3xl bg-slate-950 p-8 text-white shadow-xl">
         <div className="max-w-3xl">
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-400">Integration Scout</p>
@@ -155,24 +237,41 @@ export default function Home() {
             </a>
           </div>
         </div>
-        {statusMessage ? (
+        {errorMessage ? (
+          <p
+            role="alert"
+            className="mt-3 rounded-xl border border-rose-400/60 bg-rose-500/15 px-4 py-2 text-sm italic text-rose-300"
+          >
+            {errorMessage}
+          </p>
+        ) : null}
+        {statusMessage && !errorMessage ? (
           <p className="mt-3 rounded-xl bg-white/10 px-4 py-2 text-sm text-white">{statusMessage}</p>
         ) : null}
       </section>
 
-      <section className="mt-6 grid gap-4 md:grid-cols-4">
+      <section className="mt-6 grid gap-4 md:grid-cols-3">
         <Metric label="Companies" value={totals.total.toString()} />
         <Metric label="Score ≥ 80" value={totals.above80.toString()} />
         <Metric label="Approved" value={totals.approved.toString()} />
-        <Metric label="Avg score" value={totals.total ? totals.avg.toString() : "—"} />
       </section>
 
       <section className="mt-8 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-950">Prospect queue</h2>
-          <p className="text-sm text-slate-500">
-            Review the suggested persona, email, and demo. Approve, reject, or flag for research.
-          </p>
+        <div className="flex items-start gap-2">
+          <button
+            type="button"
+            onClick={() => setMobileDrawerOpen(true)}
+            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 lg:hidden"
+            aria-label="Open company list"
+          >
+            Companies ({companies.length})
+          </button>
+          <div>
+            <h2 className="text-2xl font-bold text-slate-950">Prospect queue</h2>
+            <p className="text-sm text-slate-500">
+              Review the suggested persona, email, and demo. Approve, reject, or flag for research.
+            </p>
+          </div>
         </div>
         <div className="flex gap-2">
           <select
@@ -211,17 +310,19 @@ export default function Home() {
           No companies match the current filters.
         </section>
       ) : (
-        <section className="mt-5 grid gap-4 lg:grid-cols-2">
+        <section className="mt-5 grid gap-4 xl:grid-cols-2">
           {filtered.map((company) => (
             <CompanyCard
               key={company.id}
               company={company}
+              active={activeDomain === company.domain}
               onChangeReviewStatus={onChangeReviewStatus}
             />
           ))}
         </section>
       )}
-    </main>
+      </main>
+    </div>
   );
 }
 

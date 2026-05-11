@@ -38,13 +38,32 @@ def test_data_dir_env_var_routes_storage(monkeypatch, tmp_path: Path):
 
 
 def test_default_data_dir_falls_back_to_backend_data(monkeypatch):
-    monkeypatch.delenv("DATA_DIR", raising=False)
-    import app.config
+    """Default with no env override and no .env file should be backend/data.
 
-    app.config.get_settings.cache_clear()
-    settings = app.config.get_settings()
-    # The default should resolve under <repo>/backend/data, not a hosted path.
+    Uses settings_ignoring_dotenv() instead of get_settings() so the developer's
+    local .env (which may legitimately set DATA_DIR=data for convenience) does
+    not leak into the test.
+    """
+    monkeypatch.delenv("DATA_DIR", raising=False)
+    from app.config import settings_ignoring_dotenv
+
+    settings = settings_ignoring_dotenv()
     assert settings.data_dir.endswith("backend/data")
+
+
+def test_empty_data_dir_env_falls_back_to_default():
+    """A blank DATA_DIR= in .env or the process env should still resolve safely."""
+    from app.config import Settings, _DEFAULT_DATA_DIR
+
+    settings = Settings(data_dir="", _env_file=None)
+    assert settings.data_dir == _DEFAULT_DATA_DIR
+
+
+def test_whitespace_data_dir_env_falls_back_to_default():
+    from app.config import Settings, _DEFAULT_DATA_DIR
+
+    settings = Settings(data_dir="   ", _env_file=None)
+    assert settings.data_dir == _DEFAULT_DATA_DIR
 
 
 def test_json_store_writes_to_data_dir(monkeypatch, tmp_path: Path):
@@ -80,11 +99,11 @@ def test_seed_manager_writes_to_data_dir(monkeypatch, tmp_path: Path):
 
 
 def test_allowed_origins_default_includes_localhost(monkeypatch):
+    """Same isolation reason as the DATA_DIR default test."""
     monkeypatch.delenv("ALLOWED_ORIGINS", raising=False)
-    import app.config
+    from app.config import settings_ignoring_dotenv
 
-    app.config.get_settings.cache_clear()
-    origins = app.config.get_settings().cors_origins
+    origins = settings_ignoring_dotenv().cors_origins
     assert "http://localhost:3000" in origins
     assert "http://127.0.0.1:3000" in origins
 

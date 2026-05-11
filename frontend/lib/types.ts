@@ -73,6 +73,7 @@ export interface CompanyProfile {
   integration_need_hypothesis: string;
   evidence_summary: string;
   crawl_quality_warning?: string;
+  pages_fetched?: string[];
   competitive_triggers: CompetitiveTrigger[];
   primary_persona?: PersonaRecommendation | null;
   persona_reasoning?: string[];
