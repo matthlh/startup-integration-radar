@@ -395,6 +395,150 @@ categories:
   - name: property tech
     keywords: [property, real estate, landlord, tenant, leasing]
 
+# ─── Destination systems by category ─────────────────────────────────────────
+# When we suggest a demo / outreach, we pick the *destination* systems a
+# customer of this company would likely sync into. The order matters — the
+# first system shows up first in the email body and demo title.
+#
+# These ARE used as fallbacks. The pipeline first checks the crawled text for
+# brand keywords (see `known_systems` below); only when nothing matches does
+# it fall through to this category map.
+destination_systems:
+  automotive:
+    - fleet management system
+    - dealer management system
+    - insurance claims system
+    - remarketing platform
+  automotive inspection:
+    - fleet management
+    - claims management
+    - dealer management
+    - remarketing platform
+  insurance claims:
+    - claims management system
+    - policy admin system
+    - document management system
+    - payment system
+  construction tech:
+    - Procore
+    - Autodesk Construction Cloud
+    - QuickBooks
+    - project management
+    - ERP
+  contractor:
+    - QuickBooks
+    - NetSuite
+    - Sage Intacct
+    - Viewpoint
+    - dispatch system
+    - CRM
+  field service:
+    - QuickBooks
+    - NetSuite
+    - Sage Intacct
+    - dispatch system
+    - CRM
+    - accounting
+  logistics:
+    - TMS
+    - ELD
+    - maintenance system
+    - fuel cards
+    - payroll
+    - ERP
+  AI voice agents:
+    - HubSpot
+    - Salesforce
+    - call log system
+    - CRM tasks
+    - support ticketing
+    - calendar
+  sales automation:
+    - Salesforce
+    - HubSpot
+    - Outreach
+    - Salesloft
+    - enrichment data
+  vertical AI:
+    - CRM
+    - workflow tool
+    - reporting/analytics
+  finance operations:
+    - NetSuite
+    - QuickBooks
+    - Sage Intacct
+    - ERP
+  healthcare operations:
+    - EHR/EMR
+    - billing system
+    - patient CRM
+  legal tech:
+    - document management system
+    - CRM
+    - billing system
+  HR tech:
+    - HRIS
+    - payroll
+    - ATS
+  property tech:
+    - property management system
+    - accounting
+    - CRM
+  default:
+    - CRM
+    - ERP
+    - internal operations database
+
+# Brand-name → display name. When any alias appears in the crawled text we
+# elevate that system above the category default. Lower-case match.
+known_systems:
+  Salesforce: [salesforce]
+  HubSpot: [hubspot]
+  NetSuite: [netsuite]
+  QuickBooks: [quickbooks, quick books]
+  "Sage Intacct": [sage intacct, "sage-intacct"]
+  Viewpoint: [viewpoint, vista by viewpoint]
+  Procore: [procore]
+  "Autodesk Construction Cloud": [autodesk, autodesk construction]
+  Workday: [workday]
+  Snowflake: [snowflake]
+  Jira: [jira]
+  Stripe: [stripe]
+  SAP: [sap business one, sap s/4]
+  Slack: [slack]
+  Outreach: [outreach.io, outreach platform]
+  Salesloft: [salesloft]
+  Xero: [xero]
+  ADP: [adp]
+  Gusto: [gusto]
+
+# Companies that obviously already have huge integration ecosystems aren't
+# great targets for a "we'll build integrations for you" pitch. The
+# fit-quality computation downgrades these from strong_fit to mature_platform.
+mature_platform_hints:
+  domains:
+    - notion.so
+    - slack.com
+    - linear.app
+    - airtable.com
+    - figma.com
+    - canva.com
+    - asana.com
+    - monday.com
+    - clickup.com
+    - zapier.com
+    - hubspot.com
+    - salesforce.com
+  keywords:
+    - public app marketplace
+    - public marketplace
+    - 1000+ integrations
+    - thousand+ integrations
+    - thousands of integrations
+    - hundreds of integrations
+    - app directory
+    - integration directory
+
 # ─── Competitors to watch ─────────────────────────────────────────────────────
 # When any alias is found on a company page, a competitive_trigger is created.
 # Add any integration platform or competitor you want to detect.

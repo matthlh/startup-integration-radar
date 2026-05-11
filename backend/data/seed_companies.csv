@@ -1,11 +1,11 @@
 company_name,domain,category,notes
-Monk,monk.ai,automotive,AI vehicle inspection — customers likely need data synced into fleet and claims systems
-Tractable,tractable.ai,automotive,AI damage assessment for insurers — outputs likely feed claims management and ERP
-Snapsheet,snapsheet.com,insurance claims,Digital claims management platform — likely needs ERP and carrier system integrations
+Monk,monk.ai,automotive inspection,AI vehicle inspection — customers likely need data synced into fleet and claims systems
+Tractable,tractable.ai,automotive inspection,AI damage assessment for insurers — outputs likely feed claims management and ERP
+Snapsheet,snapsheetclaims.com,insurance claims,Digital claims management platform — likely needs ERP and carrier system integrations
 OpenSpace,openspace.ai,construction tech,AI construction documentation — customers likely need Procore/Autodesk sync
-BuildOps,buildops.com,construction tech,Field service management for contractors — likely needs ERP and accounting integrations
+BuildOps,buildops.com,contractor,Field service management for commercial contractors — accounting/ERP integrations (QuickBooks/NetSuite/Sage/Viewpoint)
 Samsara,samsara.com,logistics,IoT fleet management — customers likely need TMS and ERP integrations
 Motive,gomotive.com,logistics,Trucking ELD and fleet management — likely needs carrier and dispatch system integrations
-Retell AI,retellai.com,vertical AI,Voice agent platform — workflows likely need CRM and support system integrations
-Artisan,artisan.co,vertical AI,AI sales automation — likely needs Salesforce HubSpot and sequencing tool integrations
-ServiceTitan,servicetitan.com,vertical AI,Field service management platform — likely needs accounting and ERP integrations
+Retell AI,retellai.com,AI voice agents,Voice agent platform — workflows likely need CRM and support system integrations
+Artisan,artisan.co,sales automation,AI sales automation — likely needs Salesforce HubSpot and sequencing tool integrations
+ServiceTitan,servicetitan.com,field service,Field service management for trades — accounting/ERP/dispatch integrations

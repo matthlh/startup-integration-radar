@@ -24,6 +24,21 @@ class Confidence(str, Enum):
     high = "high"
 
 
+class FitQuality(str, Enum):
+    """Whether this company is worth outbounding to, regardless of score.
+
+    A high score with bad evidence (e.g. parked domain) can still be a bad fit;
+    a moderate score on a mature platform is a 'possible_fit at best' for an
+    integration-build pitch.
+    """
+
+    strong_fit = "strong_fit"
+    possible_fit = "possible_fit"
+    weak_fit = "weak_fit"
+    bad_fit = "bad_fit"
+    mature_platform = "mature_platform"
+
+
 class EvidenceType(str, Enum):
     website_copy = "website_copy"
     docs = "docs"
@@ -149,6 +164,8 @@ class CompanyProfile(BaseModel):
     disqualification_reason: str = ""
     pages_fetched: list[str] = Field(default_factory=list)
     crawl_quality_warning: str = ""
+    fit_quality: FitQuality = FitQuality.possible_fit
+    prospect_reasoning: str = ""
     review_status: Literal["new", "approved", "skip", "needs_research"] = "new"
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -222,6 +239,9 @@ class ClayExportRow(BaseModel):
     demo_concept: str = ""
     suggested_email_subject: str = ""
     suggested_email_body: str = ""
+    # ── Fit ───────────────────────────────────────────────────────────────
+    fit_quality: str = ""
+    prospect_reasoning: str = ""
     # ── Provenance ────────────────────────────────────────────────────────
     source_pages_scanned: str = ""
     crawl_quality_warning: str = ""

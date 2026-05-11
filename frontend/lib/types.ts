@@ -56,6 +56,13 @@ export interface DemoConcept {
 
 export type ReviewStatus = "new" | "approved" | "skip" | "needs_research";
 
+export type FitQuality =
+  | "strong_fit"
+  | "possible_fit"
+  | "weak_fit"
+  | "bad_fit"
+  | "mature_platform";
+
 export interface CompanyProfile {
   id: string;
   name: string;
@@ -74,6 +81,8 @@ export interface CompanyProfile {
   evidence_summary: string;
   crawl_quality_warning?: string;
   pages_fetched?: string[];
+  fit_quality?: FitQuality;
+  prospect_reasoning?: string;
   competitive_triggers: CompetitiveTrigger[];
   primary_persona?: PersonaRecommendation | null;
   persona_reasoning?: string[];

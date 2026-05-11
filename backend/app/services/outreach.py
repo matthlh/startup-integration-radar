@@ -189,18 +189,21 @@ def infer_workflow_object(profile: CompanyProfile) -> str:
     return "record"
 
 
-def choose_likely_systems(text: str) -> list[str]:
-    lowered = text.lower()
-    mappings = [
-        (("automotive", "dealer", "vehicle", "inspection", "fleet"), ["fleet management system", "dealer management system", "insurance claims system"]),
-        (("construction", "bim", "project", "field"), ["Procore", "Autodesk Construction Cloud", "ERP"]),
-        (("sales", "lead", "prospect", "outbound"), ["Salesforce", "HubSpot", "Outreach/Salesloft"]),
-        (("finance", "invoice", "accounting", "payment"), ["NetSuite", "QuickBooks", "ERP"]),
-        (("health", "patient", "clinic", "care"), ["EHR/EMR", "billing system", "patient CRM"]),
-        (("legal", "contract", "matter"), ["document management system", "CRM", "billing system"]),
-        (("logistics", "freight", "dispatch", "warehouse"), ["TMS", "WMS", "fleet management system"]),
-    ]
-    for keywords, systems in mappings:
-        if any(keyword in lowered for keyword in keywords):
-            return systems
-    return ["CRM", "ERP", "internal operations database"]
+def choose_likely_systems(
+    text: str,
+    *,
+    seed_category: str = "",
+    inferred_category: str = "",
+) -> list[str]:
+    """Pick destination systems for a company, evidence-first.
+
+    Thin wrapper around services.destinations.select_destination_systems so
+    legacy callers (and the profiler) stay simple.
+    """
+    from app.services.destinations import select_destination_systems
+
+    return select_destination_systems(
+        text,
+        seed_category=seed_category,
+        inferred_category=inferred_category,
+    )

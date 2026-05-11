@@ -7,8 +7,9 @@ from app.core.scoring import score_evidence
 from app.core.signal_rules import get_config
 from app.core.signals import extract_evidence, summarize_evidence
 from app.providers.web_fetcher import FetchedPage, classify_page_type, fetch_company_pages
-from app.schemas import CompanyProfile, Confidence, PipelineStage
+from app.schemas import CompanyProfile, Confidence, FitQuality, PipelineStage
 from app.services.competitive import find_competitive_triggers
+from app.services.fit_quality import compute_fit_quality
 from app.services.outreach import choose_likely_systems, make_demo_concept, make_integration_hypothesis, make_outreach
 from app.services.persona import recommend_personas_with_reasoning, select_primary_persona
 
@@ -310,11 +311,23 @@ async def profile_company(domain: str, use_llm: bool = False) -> CompanyProfile:
     homepage = next((p for p in pages if p.page_type == "homepage"), pages[0] if pages else None)
     secondary_pages = [p for p in pages if p is not homepage]
     inferred_category, category_confidence_str, category_evidence = infer_category_weighted(homepage, secondary_pages)
-    systems = choose_likely_systems(combined_text)
+    systems = choose_likely_systems(
+        combined_text,
+        # seed_category is unknown here — analyze-csv applies it later and
+        # then calls refresh_derived_fields() which recomputes systems.
+        inferred_category=inferred_category,
+    )
     employee_count_estimate = infer_employee_count_estimate(combined_text)
     company_summary, company_summary_source = select_company_summary(homepage)
 
     crawl_quality_warning = detect_crawl_quality_warning(homepage, pages)
+
+    # Bad-domain detection: a parked / placeholder / unreachable homepage caps
+    # the score at 20 so a junk page can't accidentally show up as a hot lead.
+    bad_domain_signals = ("parked", "placeholder", "no pages were fetched", "homepage was not reachable")
+    if crawl_quality_warning and any(s in crawl_quality_warning.lower() for s in bad_domain_signals):
+        score = min(score, 20)
+        stage = PipelineStage.profiled
 
     profile = CompanyProfile(
         name=name,
@@ -348,7 +361,14 @@ async def profile_company(domain: str, use_llm: bool = False) -> CompanyProfile:
     )
     profile.personas = personas
     profile.persona_reasoning = persona_reasoning
-    if score >= 55 and stage != PipelineStage.disqualified:
+
+    fit_quality, prospect_reasoning = compute_fit_quality(profile, combined_text=combined_text)
+    profile.fit_quality = fit_quality
+    profile.prospect_reasoning = prospect_reasoning
+
+    # Don't bother generating outreach/demo for bad-fit rows — they go straight
+    # to the operator for manual verification.
+    if score >= 55 and stage != PipelineStage.disqualified and fit_quality != FitQuality.bad_fit:
         profile.outreach = make_outreach(profile)
         profile.demo = await make_demo_concept(profile, use_llm=use_llm)
         profile.stage = PipelineStage.outbound_ready
@@ -359,11 +379,40 @@ async def refresh_derived_fields(profile: CompanyProfile, use_llm: bool = False)
     """Re-derive hypothesis / outreach / demo after the caller mutates the profile.
 
     Use after applying seed-CSV overrides (e.g. profile.category = seed.category)
-    so the integration hypothesis, outreach, and demo concept reflect the final
-    category instead of the inferred one.
+    so the integration hypothesis, outreach, demo concept, and destination
+    systems reflect the final category instead of the inferred one.
     """
+    # Re-pick destination systems with the new (seed-overridden) category.
+    # We don't have the original combined_text anymore, but evidence_summary +
+    # company_summary contain the brand names we extracted on the first pass,
+    # so the evidence-first picker still surfaces them.
+    haystack = " ".join(
+        filter(
+            None,
+            [
+                profile.evidence_summary,
+                profile.company_summary,
+                profile.one_liner,
+            ],
+        )
+    )
+    profile.likely_customer_systems = choose_likely_systems(
+        haystack,
+        seed_category=profile.category or "",
+        inferred_category=profile.inferred_category or profile.category or "",
+    )
+
     profile.integration_need_hypothesis = make_integration_hypothesis(profile)
-    if profile.score >= 55 and profile.stage != PipelineStage.disqualified:
+
+    fit_quality, prospect_reasoning = compute_fit_quality(profile, combined_text=haystack)
+    profile.fit_quality = fit_quality
+    profile.prospect_reasoning = prospect_reasoning
+
+    if (
+        profile.score >= 55
+        and profile.stage != PipelineStage.disqualified
+        and fit_quality != FitQuality.bad_fit
+    ):
         profile.outreach = make_outreach(profile)
         profile.demo = await make_demo_concept(profile, use_llm=use_llm)
     return profile

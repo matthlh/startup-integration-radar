@@ -119,6 +119,9 @@ def to_clay_row(profile: CompanyProfile) -> ClayExportRow:
         demo_concept=_format_demo_concept(profile),
         suggested_email_subject=profile.outreach.subject if profile.outreach else "",
         suggested_email_body=profile.outreach.body if profile.outreach else "",
+        # Fit
+        fit_quality=profile.fit_quality.value if profile.fit_quality else "",
+        prospect_reasoning=profile.prospect_reasoning,
         # Provenance
         source_pages_scanned=source_pages,
         crawl_quality_warning=profile.crawl_quality_warning,

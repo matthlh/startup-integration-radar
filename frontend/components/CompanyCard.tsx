@@ -1,8 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import type { CompanyProfile, ReviewStatus } from "../lib/types";
+import type { CompanyProfile, FitQuality, ReviewStatus } from "../lib/types";
 import { cardIdForDomain } from "./CompanySidebar";
+
+const FIT_LABELS: Record<FitQuality, { label: string; tone: string }> = {
+  strong_fit: { label: "Strong fit", tone: "bg-emerald-100 text-emerald-800" },
+  possible_fit: { label: "Possible fit", tone: "bg-sky-100 text-sky-800" },
+  weak_fit: { label: "Weak fit", tone: "bg-slate-200 text-slate-700" },
+  bad_fit: { label: "Bad fit — verify domain", tone: "bg-rose-100 text-rose-800" },
+  mature_platform: { label: "Mature platform", tone: "bg-amber-100 text-amber-800" },
+};
 
 function confidenceLabel(score: number) {
   if (score >= 80) return "Hot";
@@ -63,6 +71,15 @@ export function CompanyCard({
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-lg font-semibold text-slate-950">{company.name}</h3>
             <ReviewBadge status={reviewStatus} />
+            {company.fit_quality ? (
+              <span
+                className={`rounded-full px-2 py-1 text-xs font-semibold ${
+                  FIT_LABELS[company.fit_quality].tone
+                }`}
+              >
+                {FIT_LABELS[company.fit_quality].label}
+              </span>
+            ) : null}
             <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">
               {company.stage}
             </span>
@@ -107,6 +124,13 @@ export function CompanyCard({
         <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Why this company needs integrations</div>
         <p className="mt-1 text-sm leading-6 text-slate-700">{company.integration_need_hypothesis}</p>
       </div>
+
+      {company.prospect_reasoning ? (
+        <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
+          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Should we reach out?</div>
+          <p className="mt-1 text-sm leading-6 text-slate-700">{company.prospect_reasoning}</p>
+        </div>
+      ) : null}
 
       <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
         <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Evidence summary</div>

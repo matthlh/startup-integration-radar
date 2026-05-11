@@ -12,6 +12,18 @@ STRONG_SIGNALS = {
     SignalName.workflow_product,
 }
 
+# Careers / job postings are routinely keyword-rich (a job ad mentions every
+# system the company has ever touched, regardless of whether the product
+# actually integrates with it). Halve their weight in the saturation math so
+# the product-surface signals dominate. Everything else stays full weight.
+HALF_WEIGHT_SOURCES = {"engineering job posting", "careers page"}
+
+
+def _hit_weight(source_context: str) -> float:
+    if source_context in HALF_WEIGHT_SOURCES:
+        return 0.5
+    return 1.0
+
 
 def score_evidence(evidence: list[Evidence]) -> tuple[int, Confidence, list[SignalScore], PipelineStage, str]:
     grouped: dict[SignalName, list[Evidence]] = defaultdict(list)
@@ -42,8 +54,12 @@ def score_evidence(evidence: list[Evidence]) -> tuple[int, Confidence, list[Sign
             total -= 35
             continue
 
-        # Saturating score: one hit is a clue, three independent hits are strong evidence.
-        base = min(max_points, round((len(hits) / 3) * max_points))
+        # Saturating score: one hit is a clue, three independent hits are strong
+        # evidence. Source-aware: careers-page mentions count half because that
+        # page lists every system the company has ever touched, regardless of
+        # whether the product actually integrates with it.
+        weighted_hit_count = sum(_hit_weight(hit.source_context) for hit in hits)
+        base = min(max_points, round((weighted_hit_count / 3) * max_points))
         # Reward higher-signal categories slightly when evidence appears repeatedly.
         weighted_bonus = min(3, sum(max(hit.weight, 0) for hit in hits) // 8)
         points = min(max_points, base + weighted_bonus)
