@@ -1,11 +1,4 @@
-# Nixpacks build config for Railway / Render.
-# Pinning Python keeps the runtime stable across redeploys.
-
-[phases.setup]
-nixPkgs = ["python311", "gcc"]
-
-[phases.install]
-cmds = ["python -m pip install --upgrade pip && pip install -r requirements.txt"]
+providers = ["python"]
 
 [start]
 cmd = "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
