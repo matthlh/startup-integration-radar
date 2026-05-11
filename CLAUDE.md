@@ -1,111 +1,120 @@
-# CLAUDE.md
+# CLAUDE.md — Integration Scout
 
-You are working on **Integration Scout**, an evidence-first tool for finding B2B software companies that likely need customer-facing integrations, workflow connectors, data syncs, or API implementation work built out as part of their product offering.
+Token-saving rules: keep this file under ~5k tokens. Detailed history lives in `docs/progress.md`. The active session's state lives in `session_summary.md` — read that first.
 
-## Read first
+## Project summary
 
-Before coding, read these files:
+Integration Scout helps find B2B software companies that likely need customer-facing integrations built. It crawls public pages, scores integration-need signals, generates a Clay-ready CSV with per-company hypothesis, persona, suggested email, and demo concept. Runs locally; no auth, no email send, no paid APIs by default.
 
-1. `README.md`
-2. `PRD.md`
-3. `docs/IMPLEMENTATION_PLAN.md`
-4. `docs/SCORING_RUBRIC.md`
-5. `docs/OUTBOUND_PLAYBOOK.md`
-6. `docs/FIGMA_MAKE_HANDOFF.md` if touching frontend
+## What the app currently does
 
-## Product mental model
+1. **Add seed companies** — CLI (`add-domain`, `import-domains`, `add`) or dashboard form, or edit `backend/data/seed_companies.csv` directly. Domains are normalized + deduped.
+2. **Analyze** — fetches homepage + key pages (`/product`, `/integrations`, `/docs`, `/careers`, …), extracts signal evidence via keyword buckets in `signals.yaml`, infers category (page-type weighted, homepage dominates), picks destination systems (evidence-first, brand keywords beat category default).
+3. **Score** — saturating buckets capped at 100; careers-page hits weigh 0.5×.
+4. **Classify** — `fit_quality ∈ {strong_fit, possible_fit, weak_fit, bad_fit, mature_platform}` and `prospect_reasoning` (one sentence GTM angle). Bad-domain detection caps score at 20.
+5. **Generate** — outreach subject/body and demo concept (deterministic; optional Claude path).
+6. **Review** — Next.js dashboard with viewport-edge sidebar, search, quick filters, approve/reject/needs-research per card.
+7. **Export** — Clay-ready CSV (27 stable columns) at `/api/exports/clay.csv?status=approved` or via CLI.
 
-This is not a generic scraper. The product should help answer:
+## Tech stack
 
-> "Is this company likely to need customer-facing integrations badly enough that an integration services team should reach out to them?"
+- Backend: Python 3.9+, FastAPI, Pydantic v2, httpx, BeautifulSoup, Typer, Rich.
+- Frontend: Next.js 15, React 19, TypeScript, Tailwind.
+- Storage: local JSON file (`companies.json`) + CSV (`seed_companies.csv`). No DB.
+- Tests: pytest (backend), `next build` (type-checks frontend).
 
-A company like monk.ai is a good example: they sell automotive inspection AI and their customers almost certainly need that data synced into fleet management systems, dealer management systems, or insurance claims platforms. They need integrations built.
+## Key folders
 
-Every company should become a reviewable GTM card:
-
-- What the company does
-- Why integrations are likely part of their product gap
-- Public evidence supporting that claim
-- Whether a competitor integration platform is already in play
-- Who to contact
-- What to say
-- What demo concept to build if they do not respond
-
-## Current acceptance criteria
-
-Do not regress these features:
-
-1. **Evidence Collector**
-   - `CompanyProfile.evidence_summary` must exist.
-   - It should mention matched keywords and source context when possible.
-   - Example: `Mentioned 'NetSuite' and 'QuickBooks' on their engineering job posting.`
-
-2. **Persona Logic**
-   - If `employee_count_estimate < 50`, primary persona is Founder.
-   - If `employee_count_estimate > 50`, primary persona is Product, with Partnerships as secondary.
-   - Unknown size should still return a useful default and not crash.
-
-3. **Demo Concept Generator**
-   - Deterministic fallback must work without paid API calls.
-   - Optional Claude path must return strict JSON and gracefully fall back if unavailable.
-
-4. **Competitive Trigger**
-   - Detect integration platform signals (Merge.dev, Paragon, etc.) from page text, links, image alt text, and asset names.
-   - If triggered, outreach/demo should use a comparison angle rather than a generic integration angle.
-
-## Architecture
-
-```text
-backend/app/core/        deterministic domain, signal, evidence, and scoring logic
-backend/app/providers/   external APIs and website fetching
-backend/app/services/    product workflows: profile, persona, outreach, discovery, export, competitive triggers
-backend/app/storage/     local JSON store for MVP
-backend/app/api/         FastAPI routes
-backend/scripts/         CLI commands
-backend/config/          editable scoring rules (signals.yaml)
-frontend/                Next.js review dashboard
-prompts/                 LLM and GTM prompts
+```
+backend/app/core/        scoring + signal extraction + signal_rules loader
+backend/app/providers/   web fetcher, Exa, Anthropic (all gated)
+backend/app/services/    profiler, persona, outreach, exporter, seed_manager,
+                         destinations, fit_quality, competitive, csv_importer
+backend/app/api/         FastAPI routes (/companies, /exports, /seeds, /health)
+backend/app/storage/     CompanyStore JSON wrapper
+backend/scripts/radar.py CLI (Typer)
+backend/config/          signals.yaml — all scoring/persona/destination/competitor rules
+backend/tests/           pytest suite (≥120 passing)
+backend/data/            seed_companies.csv, companies.json (gitignored)
+frontend/app/            Next.js routes (single page)
+frontend/components/     CompanyCard, CompanySidebar
+frontend/lib/            api client, shared types
+docs/                    DEPLOYMENT.md, EDITING_SCORING_RULES.md, progress.md, …
 ```
 
-## Development rules
-
-1. Keep the deterministic pipeline useful without LLM calls.
-2. Do not make paid API calls by default.
-3. Put all provider-specific code behind `backend/app/providers/`.
-4. Preserve evidence traceability. A score without evidence is not useful.
-5. Add or update tests for scoring/rubric/persona changes.
-6. Prefer small, reviewable changes.
-7. Do not add auth, email sending, queues, or background jobs until the MVP is validated.
-8. Do not commit secrets or generated data exports.
-9. Scoring rules live in `backend/config/signals.yaml` — do not hardcode keywords or weights in Python.
-
-## External API rules
-
-- `ENABLE_EXTERNAL_API_CALLS=false` means no live Exa or Claude calls.
-- If implementing provider changes, keep dry-run behavior working.
-- Exa discovery should return `DiscoveryCandidate` objects only.
-- Claude analysis/demo generation should return structured JSON only.
-
-## Testing
-
-Run from `backend/`:
+## Local run commands
 
 ```bash
-pytest
+# Backend
+cd backend
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+uvicorn app.main:app --reload
+
+# Frontend (separate terminal)
+cd frontend
+npm install
+cp .env.example .env.local
+npm run dev
+# http://localhost:3000
 ```
 
-If touching frontend:
+## Important CLI commands
 
 ```bash
-npm run build
+python scripts/radar.py add-domain monk.ai --name Monk   # add one seed
+python scripts/radar.py add                              # interactive add
+python scripts/radar.py import-domains domains.txt       # bulk add
+python scripts/radar.py list-seeds | remove-domain | update-domain
+python scripts/radar.py run                              # analyze + export, friendly summary
+python scripts/radar.py analyze-csv data/seed_companies.csv
+python scripts/radar.py export ../exports/clay.csv [--status approved]
+python scripts/radar.py discover "<query>" --limit 25 [--live]
+python scripts/radar.py reset                            # clear analyzed store
 ```
 
-## High-priority improvements
+## Current UX problems
 
-1. CSV import of seed domains.
-2. Meta description extraction for better one-liners.
-3. Manual review status updates in the dashboard.
-4. Persona rules moved into signals.yaml.
-5. Exa live discovery provider validation.
-6. Outreach email body visible in the dashboard card.
-7. Demo generator prompt for top 10 prospects.
+- Sidebar active-row tracks clicks only, not scroll position.
+- No keyboard nav between sidebar rows.
+- Sidebar filter is independent from the main grid filter (intentional but may confuse).
+- No persistence of sidebar/filter state across reloads.
+- No bulk-approve in dashboard.
+
+## Current analysis-quality problems
+
+- Mature-vertical SaaS (Samsara, Motive, ServiceTitan) doesn't auto-downgrade to `mature_platform` — the hint list only covers horizontal SaaS. Operator has to judge manually.
+- Some sites block the crawler entirely (Artisan) — we correctly flag `bad_fit` but offer no fallback (e.g., trying a known sub-path).
+- "Snowflake" can lead the destination list when found on a logistics page even when the more useful target would be TMS — evidence-first picker doesn't yet weight branded findings by relevance to category.
+- Employee-count heuristic is still text-pattern-based; can fire on edge cases. Watch for unicorns mis-tagged founder.
+
+## Current top priorities
+
+See `session_summary.md` for the live "next" item. The standing roadmap (in rough order):
+
+1. Add fallback sub-path crawling when homepage looks junky (snapsheet.com → snapsheetclaims.com style).
+2. Weight evidence-first branded findings by category relevance so logistics doesn't lead with Snowflake.
+3. Bulk-approve + scroll-tracked sidebar active state.
+4. Move CLAUDE export columns into a documented schema file so changes are visible.
+
+## Testing commands
+
+```bash
+cd backend && source .venv/bin/activate && pytest -q   # full backend suite (~120 tests)
+cd frontend && npm run build                           # type-check + build
+```
+
+Run both when changes touch schema, scoring, or types. For pure docs/seed-CSV edits, neither is required.
+
+## Hard constraints
+
+- **Local-first.** No deployment is live. `docs/DEPLOYMENT.md` describes the Vercel + Railway/Render plan but nothing is deployed.
+- **No auth.** Backend is wide open in dev.
+- **No paid APIs by default.** `ENABLE_EXTERNAL_API_CALLS` gates Exa and Anthropic; both must fail safely when off or unkeyed.
+- **No email sending.** Outreach copy is generated for review/Clay only.
+- **Preserve existing CLI commands.** Renames are fine if the old name is kept as an alias for the current session.
+- **Prefer small focused changes.** Multi-phase work is OK if each phase commits cleanly.
+- **Run `pytest` and `npm run build`** when touching backend logic, schemas, or frontend types. Skip when changes are purely docs/data.
+- **Don't commit `backend/data/companies.json` or `exports/*`.** They're gitignored. Edit `seed_companies.csv` is committed.
+- **Scoring rules live in `signals.yaml`.** Never hardcode keywords/weights/categories/personas in Python.
